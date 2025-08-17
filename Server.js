@@ -15,7 +15,7 @@ connectDB();
 app.use(
   cors({
     //origin: "http://localhost:5173", 
-     origin: "https://oceanoflaptops.shop",
+     origin: ["http://localhost:5173", "https://oceanoflaptops.shop"], 
     credentials: true, 
   })
 );
