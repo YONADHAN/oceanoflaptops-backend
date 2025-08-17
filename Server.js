@@ -11,7 +11,7 @@ const publicRoute = require('./router/publicRoute')
 const cancelPendingOrders = require("./utils/CancelOrderExceedsTwoDaysWithoutPayments");
 
 connectDB();
-const sampleController = require('./controllers/user/sampleController')
+//const sampleController = require('./controllers/user/sampleController')
 app.use(
   cors({
     //origin: "http://localhost:5173", 
