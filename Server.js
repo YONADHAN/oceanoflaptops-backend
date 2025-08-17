@@ -14,7 +14,8 @@ connectDB();
 const sampleController = require('./controllers/user/sampleController')
 app.use(
   cors({
-    origin: "http://localhost:5173", 
+    //origin: "http://localhost:5173", 
+     origin: "https://oceanoflaptops.shop",
     credentials: true, 
   })
 );
