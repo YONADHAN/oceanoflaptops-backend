@@ -1,4 +1,5 @@
 const User = require("../../models/userSchema");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 
 const get_customers = async (req, res) => {
     try {
@@ -29,7 +30,7 @@ const get_customers = async (req, res) => {
     
       const totalPages = Math.ceil(totalCustomers / limit);  
      
-      res.status(200).json({
+      res.status(HTTP_STATUS.OK).json({
         success: true,
         message: "Customers successfully fetched",
         customers,
@@ -39,7 +40,7 @@ const get_customers = async (req, res) => {
       });
     } catch (error) {
       console.error("Error fetching customers:", error);
-      res.status(500).json({ success: false, message: error.message });
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: error.message });
     }
   };
   
@@ -49,10 +50,10 @@ const customer_unblock = async (req, res) => {
     let id = req.params.id;
     await User.updateOne({ _id: id }, { $set: { isBlocked: false } });
     res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({ success: true, message: "Customer Successfully Unblocked" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server Error happened" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server Error happened" });
   }
 };
 const customer_block = async (req, res) => {
@@ -60,10 +61,10 @@ const customer_block = async (req, res) => {
     let id = req.params.id;
     await User.updateOne({ _id: id }, { $set: { isBlocked: true } });
     res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({ success: true, message: "Successfully blocked the User" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server Error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server Error" });
   }
 };
 

@@ -1,11 +1,6 @@
 
-
-
-const User = require('../../models/userSchema');
-const Category = require('../../models/categorySchema');
 const Order = require("../../models/orderSchema");
-const Product = require("../../models/productSchema");
-const Coupon = require('../../models/couponSchema');
+const HTTP_STATUS = require('../../utils/constants/httpStatus');
 
 const generateReports = async (req, res) => {
     const { startDate, endDate, limit = 10, interval = "day" } = req.body;
@@ -137,7 +132,7 @@ const generateReports = async (req, res) => {
         ]);
 
         // Send combined results
-        res.status(200).json({
+        res.status(HTTP_STATUS.OK).json({
             success: true,
             reports: {
                 categorySales,
@@ -150,7 +145,7 @@ const generateReports = async (req, res) => {
 
     } catch (error) {
         console.error("Error generating reports:", error);
-        res.status(500).json({
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
             success: false,
             message: "Internal Server Error",
             error: error.message

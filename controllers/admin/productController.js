@@ -1,7 +1,7 @@
-const path = require("path");
-const sharp = require("sharp");
+
 const Product = require("../../models/productSchema"); 
 const Category = require("../../models/categorySchema"); 
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 
 
 const salePriceCalculator = async (regularPrice, productId) => {
@@ -29,7 +29,7 @@ const add_product = async (req, res) => {
 
     for (let field of requiredFields) {
       if (!productSubmissionData[field]) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false, 
           message: `Missing required field: ${field}`
         });
@@ -44,7 +44,7 @@ const add_product = async (req, res) => {
     });
 
     if (productExists) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false, 
         message: "Product already exists"
       });
@@ -53,14 +53,14 @@ const add_product = async (req, res) => {
   
     const category = await Category.findById(productSubmissionData.category);
     if (!category) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false, 
         message: "Invalid category"
       });
     }
     // const salePrice = await salePriceCalculator(productSubmissionData.regularPrice, productSubmissionData._id);
     // if (!salePrice) {
-    //   return res.status(400).json({
+    //   return res.status(HTTP_STATUS.BAD_REQUEST).json({
     //     success: false, 
     //     message: "Failed to calculate sale price"
     //   });
@@ -78,15 +78,15 @@ const add_product = async (req, res) => {
     const newProduct = new Product(productSubmissionData);
     await newProduct.save();
 
-    res.status(201).json({
+    res.status(HTTP_STATUS.CREATED).json({
       success: true, 
       message: "Product added successfully",
       product: newProduct
     });
 
   } catch (error) {
-    console.error("Error adding product:", error);
-    res.status(500).json({
+    //console.error("Error adding product:", error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false, 
       message: "Server error",
       error: error.message
@@ -134,7 +134,7 @@ const getProducts = async (req, res) => {
   
     const total = await Product.countDocuments(filter);
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       products,
       total,
@@ -142,7 +142,7 @@ const getProducts = async (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: 'Error fetching products',
       error: error.message,
@@ -160,7 +160,7 @@ const toggleBlockProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) {
-      return res.status(404).json({
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: "Product not found",
       });
@@ -169,13 +169,13 @@ const toggleBlockProduct = async (req, res) => {
     product.isBlocked = !product.isBlocked;
     await product.save();
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       message: `Product ${product.isBlocked ? 'blocked' : 'unblocked'} successfully`,
       isBlocked: product.isBlocked,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Error toggling product block status",
       error: error.message,
@@ -201,7 +201,7 @@ const updateProduct = async (req, res) => {
     for (let field of requiredFields) {
       if (!updateData[field]) {
         console.error(`Missing or undefined field: ${field}`, updateData[field]);
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false, 
           message: `Missing required field: ${field}`
         });
@@ -212,7 +212,7 @@ const updateProduct = async (req, res) => {
    
     const category = await Category.findById(updateData.category._id);
     if (!category) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false, 
         message: "Invalid category"
       });
@@ -221,7 +221,7 @@ const updateProduct = async (req, res) => {
  
       const existingProduct = await Product.findById(productId);
       if (!existingProduct) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           success: false,
           message: "Product not found"
         });
@@ -280,13 +280,13 @@ const updateProduct = async (req, res) => {
     );
 
     if (!updatedProduct) {
-      return res.status(404).json({
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: "Product not found"
       });
     }
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "Product updated successfully",
       product: updatedProduct
@@ -294,7 +294,7 @@ const updateProduct = async (req, res) => {
 
   } catch (error) {
     console.error("Error updating product:", error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Server error",
       error: error.message
@@ -311,19 +311,19 @@ const get_product = async (req, res) => {
     const product = await Product.findById(productId).populate('category');
 
     if (!product) {
-      return res.status(404).json({
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: "Product not found"
       });
     }
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       product
     });
   } catch (error) {
     console.error("Error fetching product:", error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Server error",
       error: error.message
@@ -337,12 +337,12 @@ const updateProductOffer = async (req, res) => {
     const offer = req.body.offer;
     console.log("Product offer  :  ", productId,"  ", offer,"%")
     if(offer<0 || offer>100) {
-      return res.status(400).json({message: "Invalid offer value (must be between 0 and 100)"});
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({message: "Invalid offer value (must be between 0 and 100)"});
     }  
 
     const product = await Product.findById(productId).populate('category');
     if (!product) {
-      return res.status(404).json({message: "Product not found"});
+      return res.status(HTTP_STATUS.NOT_FOUND).json({message: "Product not found"});
     }
     const maximumOffer = Math.max(offer, product.category.offer||0);
     const salePrice = (product.regularPrice - (maximumOffer * product.regularPrice) / 100).toFixed(0)
@@ -350,9 +350,9 @@ const updateProductOffer = async (req, res) => {
     product.salePrice = salePrice;
     await product.save();
    
-    res.status(200).json({message: "Offer updated successfully", product});
+    res.status(HTTP_STATUS.OK).json({message: "Offer updated successfully", product});
   } catch (error) {
-    res.status(500).json({message: "Error updating offer", error: error.message});
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({message: "Error updating offer", error: error.message});
   }
 }
 

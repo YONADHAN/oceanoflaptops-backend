@@ -6,6 +6,7 @@ const dotenv = require("dotenv")
 const crypto = require('crypto');
 const nodemailer = require("nodemailer");
 const {generateAccessToken, generateRefreshToken} = require('../../utils/JWT/generateTokens')
+const HTTP_STATUS = require("../../utils/constants/httpStatus.js")
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -35,22 +36,22 @@ const admin_signin = async (req,res) => {
         const user = await User.findOne({ email });
     
         if (!user) {
-            return res.status(400).json({ message: "User doesn't exist. Please sign up." });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "User doesn't exist. Please sign up." });
         }
 
         // Check if the user is verified
         if (!user.isVerified) {
-            return res.status(400).json({ message: "Please verify your email before signing in." });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Please verify your email before signing in." });
         }
 
         // Compare provided password with stored hashed password
         const isMatch = await bcryptjs.compare(password, user.password);
         if (!isMatch) {
-            return res.status(404).json({ message: "Password does not match." });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Password does not match." });
         }
 
         if(!user.isAdmin) {
-            return  res.status(404).json({message: "You are not authenticated"})
+            return  res.status(HTTP_STATUS.NOT_FOUND).json({message: "You are not authenticated"})
         }
 
         const adminDataToGenerateToken = {
@@ -86,7 +87,7 @@ const admin_signin = async (req,res) => {
             res
           );
 
-          res.status(200).json({
+          res.status(HTTP_STATUS.OK).json({
             message: "Admin Logged In successfully",
             adminData: adminDetails,
             success: true,
@@ -96,8 +97,8 @@ const admin_signin = async (req,res) => {
         }
 
     } catch (error) {
-        console.error("Error signing in:", error.message);
-        res.status(500).json({ message: "Server error." });
+        //console.error("Error signing in:", error.message);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error." });
     }
 }
 
@@ -113,7 +114,7 @@ const  requestPasswordResetFromSignin = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "User not found" });
     }
 
@@ -143,14 +144,14 @@ const  requestPasswordResetFromSignin = async (req, res) => {
       `,
     });
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "A verification email has been sent. Please check your inbox.",
     });
   } catch (error) {
     console.error("Error in requestPasswordResetFromSignup:", error);
     res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ success: false, message: "Error sending verification email" });
   }
   }

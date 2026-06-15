@@ -1,7 +1,8 @@
 const Order = require("../../models/orderSchema");
-const User = require("../../models/userSchema");
 const Product = require("../../models/productSchema");
 const Wallet = require("../../models/walletSchema");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
+
 const get_orders = async (req, res) => {
   const { page = 1, limit = 10, searchQuery  } = req.query;
   try {
@@ -29,7 +30,7 @@ const get_orders = async (req, res) => {
    
     const totalOrders = await Order.countDocuments(query.getQuery());
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       orders,
       pagination: {
@@ -40,7 +41,7 @@ const get_orders = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: error.message,
       message: "Internal Server Error",
@@ -101,13 +102,13 @@ const  order_details_for_salesReport = async (req, res) => {
     const orders = await Order.find(query).sort({placedAt: 1})
 
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       orders,
     });
     
   } catch (error) {
-     res.status(500).json({message: "Internal Server Error", error: error});
+     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({message: "Internal Server Error", error: error});
   }
 }
 
@@ -198,7 +199,7 @@ const order_for_salesReport = async (req, res) => {
       totalCustomers: 0
     };
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       orders,
       metrics,
@@ -212,7 +213,7 @@ const order_for_salesReport = async (req, res) => {
 
   } catch (error) {
     console.error("Sales Report Error:", error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: error.message,
       message: "Internal Server Error"
@@ -229,13 +230,13 @@ const order_details = async (req, res) => {
     const order = await Order.findOne({orderId: id});
     if (!order) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Order not found" });
     }
     //console.log(order)
-    res.status(200).json({ success: true, order });
+    res.status(HTTP_STATUS.OK).json({ success: true, order });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: error.message });
   }
 };
 
@@ -248,7 +249,7 @@ const order_status = async function (req, res) {
     const order = await Order.findOne({ orderId });
     
     if (!order) {
-      return res.status(404).json({ 
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ 
         success: false, 
         message: "Order not found" 
       });
@@ -256,7 +257,7 @@ const order_status = async function (req, res) {
 
  
     if (order.orderStatus === "Cancelled") {
-      return res.status(400).json({ 
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
         success: false, 
         message: "Cannot update status - order is already cancelled" 
       });
@@ -264,7 +265,7 @@ const order_status = async function (req, res) {
 
 
     if (order.orderStatus === "Delivered" && status !== "Delivered") {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: "Cannot change status of delivered orders"
       });
@@ -290,14 +291,14 @@ const order_status = async function (req, res) {
     }
     await order.save();
 
-    res.status(200).json({ 
+    res.status(HTTP_STATUS.OK).json({ 
       success: true, 
       message: `Order status updated to ${status} successfully`,
       order: order
     });
 
   } catch (error) {
-    res.status(500).json({ 
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ 
       success: false, 
       message: error.message || "Failed to update order status" 
     });
@@ -379,16 +380,16 @@ const return_request_management = async (req, res) => {
 
     const order = await Order.findOne({ orderId });
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Order not found" });
     }
 
     const item = order.orderItems.find(i => i._id == itemId);
     if (!item) {
-      return res.status(404).json({ success: false, message: "Item not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Item not found" });
     }
 
     if (item.returnRequest.requestStatus !== "Pending") {
-      return res.status(400).json({ success: false, message: "Return request has already been processed" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Return request has already been processed" });
     }
 
     item.returnRequest.requestStatus = decision === "accepted" ? "Approved" : "Rejected";
@@ -402,7 +403,7 @@ const return_request_management = async (req, res) => {
 
       const wallet = await Wallet.findOne({ userId: order.user });
       if (!wallet) {
-        return res.status(404).json({ success: false, message: "User wallet not found" });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "User wallet not found" });
       }
 
       wallet.balance += amount + order.shippingFee;
@@ -418,7 +419,7 @@ const return_request_management = async (req, res) => {
 
       const product = await Product.findById(item.product);
       if (!product) {
-        return res.status(404).json({ success: false, message: "Product not found" });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Product not found" });
       }
 
       product.quantity += 1;
@@ -437,9 +438,9 @@ const return_request_management = async (req, res) => {
 
     await order.save();
 
-    res.status(200).json({ success: true, message: "Return request processed successfully" });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: "Return request processed successfully" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Internal Server Error", error: error.message });
   }
 };
 

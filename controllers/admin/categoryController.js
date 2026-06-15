@@ -1,5 +1,6 @@
 const Category = require("../../models/categorySchema");
 const Product = require("../../models/productSchema")
+const HTTP_STATUS = require("../../utils/constants/httpStatus")
 // console.log(Category);
 
 const addCategory = async (req, res) => {
@@ -7,21 +8,21 @@ const addCategory = async (req, res) => {
    
     const { name, description } = req.body;
     if (!name || !description) {
-      return res.status(400).json({ error: "Name and description are required." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Name and description are required." });
     }
     
     const existingCategory = await Category.findOne({
       name: { $regex: new RegExp(`^${name}$`, "i") },
     });
     if (existingCategory) {
-      return res.status(400).json({ error: "Category already exists." });
+      return res.status(HTTP_STATUS.CONFLICT).json({ error: "Category already exists." });
     }
     const newCategory = new Category({
       name,
       description,
     });
     await newCategory.save();
-    return res.json({ message: "Category added Suceessfully" });
+    return res.status(HTTP_STATUS.OK).json({ message: "Category added Suceessfully" });
   } catch (error) {}
 };
 
@@ -41,7 +42,7 @@ const getCategory = async (req, res) => {
     const totalPages = Math.ceil(totalCategories / limit);
 
  
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "Categories successfully fetched",
       categories,
@@ -52,7 +53,7 @@ const getCategory = async (req, res) => {
   } catch (error) {
 
     console.error("Error fetching categories:", error.stack || error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: error.message });
   }
 };
 
@@ -63,25 +64,25 @@ const getOneCategory = async (req, res) => {
     // Validate ID format
     if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
       return res
-        .status(400)
+        .status(HTTP_STATUS.BAD_REQUEST)
         .json({ success: false, message: "Invalid category ID" });
     }
 
     const data = await Category.findById(id);
     if (!data) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Category not found" });
     }
 
-    return res.status(200).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "Category data fetched successfully",
       data,
     });
   } catch (error) {
     console.error("Error fetching category data:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server error" });
   }
 };
 
@@ -98,18 +99,18 @@ const update_category = async (req, res) => {
     );
 
     if (!updatedCategory) {
-      return res.status(404).json({ message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Category not found" });
     }
 
     res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({
         message: "Category updated successfully",
         category: updatedCategory,
       });
   } catch (error) {
     res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ message: "Error updating category", error: error.message });
   }
 };
@@ -124,15 +125,15 @@ const category_block = async (req, res) => {
     );
 
     if (!category) {
-      return res.status(404).json({ message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Category not found" });
     }
 
     res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({ message: "Category blocked successfully", category });
   } catch (error) {
     res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ message: "Error blocking category", error: error.message });
   }
 };
@@ -147,15 +148,15 @@ const category_unblock = async (req, res) => {
     );
 
     if (!category) {
-      return res.status(404).json({ message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Category not found" });
     }
 
     res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({ message: "Category unblocked successfully", category });
   } catch (error) {
     res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ message: "Error unblocking category", error: error.message });
   }
 };
@@ -164,18 +165,18 @@ const get_category_list = async (req, res) => {
   try {
     const categories = await Category.find({ isBlocked: false }, "name"); // Fetch unblocked categories with only 'name'
     if (!categories.length) {
-      return res.status(404).json({
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: "No categories found.",
       });
     }
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       categories,
     });
   } catch (error) {
     console.error("Error fetching categories:", error); // Logs detailed error for debugging
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Server Error",
     });
@@ -190,13 +191,13 @@ const  update_category_offer = async (req, res) => {
 
     // Validate offer percentage
     if (offer < 0 || offer > 100) {
-      return res.status(400).json({ success: false, message: "Offer should be between 0 and 100" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Offer should be between 0 and 100" });
     }
 
     // Find and update category
     const category = await Category.findById(categoryId);
     if (!category) {
-      return res.status(404).json({ success: false, message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Category not found" });
     }
 
     category.categoryOffer = offer;  
@@ -214,11 +215,11 @@ const  update_category_offer = async (req, res) => {
       })
     );
 
-    res.status(200).json({ success: true, message: "Category offer updated successfully", category });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: "Category offer updated successfully", category });
     
   } catch (error) {
     console.error("Error updating category offer:", error);
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error", error });
   }
 };
 

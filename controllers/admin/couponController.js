@@ -1,6 +1,7 @@
 const User = require("../../models/userSchema");
 const Order = require("../../models/orderSchema");
 const Coupon = require("../../models/couponSchema");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 
 
 const remove_coupon = async (req, res) => {
@@ -9,7 +10,7 @@ const remove_coupon = async (req, res) => {
     const couponId = req.body.couponId;
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
     }
     const appliedCoupons = user.appliedCoupons.filter(
       (appliedCoupon) => appliedCoupon.couponId !== couponId
@@ -19,7 +20,7 @@ const remove_coupon = async (req, res) => {
 
     const coupon = await Coupon.findById(couponId);
     if (!coupon) {
-      return res.status(404).json({ message: "Coupon not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Coupon not found" });
     }
     const usersAppliedCoupon = coupon.users.filter(
       (userCoupon) => userCoupon.userId !== userId
@@ -27,13 +28,13 @@ const remove_coupon = async (req, res) => {
     coupon.users = usersAppliedCoupon;
     await coupon.save();
     res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({
         message: "Coupon removed successfully",
         coupons: user.appliedCoupons,
       });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server error", error });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server error", error });
   }
 };
 
@@ -57,14 +58,14 @@ const get_coupons_for_admin = async (req, res) => {
     const totalCount = await Coupon.countDocuments();
     const totalPages = Math.ceil(totalCount / limit);
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       message: "Coupons fetched successfully",
       coupons,
       totalPages,
       currentPage: page,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       message: "Internal Server Error",
       error: error.message,
     });
@@ -75,35 +76,35 @@ const get_coupons_for_admin = async (req, res) => {
 
     // Validate required fields
     if (!couponCode || !description || !discountPercentage || !startDate || !endDate) {
-      return res.status(400).json({ message: "All fields are required." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "All fields are required." });
     }
 
     // Format and validate coupon code
     const formattedCouponCode = couponCode.trim().toUpperCase();
     if (!/^[A-Z0-9]+$/.test(formattedCouponCode)) {
-      return res.status(400).json({ message: "Coupon code must contain only letters and numbers." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Coupon code must contain only letters and numbers." });
     }
 
     if (!description.trim()) {
-      return res.status(400).json({ message: "Description cannot be empty." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Description cannot be empty." });
     }
 
     if (minPurchaseAmount == null || minPurchaseAmount <= 0) {
-      return res.status(400).json({ message: "Minimum purchase amount must be greater than 0." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Minimum purchase amount must be greater than 0." });
     }
 
     if (maxDiscountPrice == null || maxDiscountPrice < 0) {
-      return res.status(400).json({ message: "Maximum discount price cannot be negative." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Maximum discount price cannot be negative." });
     }
 
     if (discountPercentage <= 0 || discountPercentage > 100) {
-      return res.status(400).json({ message: "Discount percentage must be between 1 and 100." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Discount percentage must be between 1 and 100." });
     }
 
     // Check for existing coupon
     const couponExists = await Coupon.findOne({ couponCode: formattedCouponCode });
     if (couponExists) {
-      return res.status(400).json({ message: "Coupon code already exists." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Coupon code already exists." });
     }
 
     // Date handling
@@ -114,11 +115,11 @@ const get_coupons_for_admin = async (req, res) => {
     const end = new Date(endDate);
 
     if (start < now) {
-      return res.status(400).json({ message: "Start date cannot be in the past." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Start date cannot be in the past." });
     }
 
     if (end <= start) {
-      return res.status(400).json({ message: "End date must be greater than the start date." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "End date must be greater than the start date." });
     }
 
   
@@ -134,11 +135,11 @@ const get_coupons_for_admin = async (req, res) => {
     });
 
     await coupon.save();
-    return res.status(200).json({ message: "Coupon created successfully", coupon });
+    return res.status(HTTP_STATUS.OK).json({ message: "Coupon created successfully", coupon });
 
   } catch (error) {
     console.error("Error creating coupon:", error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error", error: error.message });
   }
 };
 
@@ -148,16 +149,16 @@ const delete_coupon = async (req, res) => {
   try {
     const couponCode = req.body.couponCode
     if (!couponCode) {
-      return res.status(400).json({ message: "No coupon selected to delete" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "No coupon selected to delete" });
     }
     const coupon = await Coupon.deleteOne({couponCode: couponCode})
   
     if (!coupon) {
-      return res.status(404).json({ message: "Coupon not found to delete" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Coupon not found to delete" });
     }
-    res.status(200).json({ message: "Coupon deleted successfully" });
+    res.status(HTTP_STATUS.OK).json({ message: "Coupon deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting coupon", error: error });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Error deleting coupon", error: error });
   }
 };
 
@@ -167,7 +168,7 @@ const update_coupon = async (req, res) => {
     const selectedCouponId = formData.couponCode
     if (!selectedCouponId ) {
       return res
-        .status(400)
+        .status(HTTP_STATUS.BAD_REQUEST)
         .json({
           message: "No coupon selected ",
         });
@@ -176,7 +177,7 @@ const update_coupon = async (req, res) => {
     const coupon = await Coupon.findOne({couponCode: formData.couponCode});
    
     if (!coupon) {
-      return res.status(404).json({ message: "Coupon not found to update" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Coupon not found to update" });
     }
 
     coupon.couponCode = formData.couponCode
@@ -189,9 +190,9 @@ const update_coupon = async (req, res) => {
 
     await coupon.save();
 
-    res.status(200).json({ message: "Coupon updated successfully", coupon });
+    res.status(HTTP_STATUS.OK).json({ message: "Coupon updated successfully", coupon });
   } catch (error) {
-    res.status(500).json({ message: "Error updating coupon", error: error });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Error updating coupon", error: error });
   }
 };
 
