@@ -189,7 +189,7 @@ const googleAuth = async (req, res) => {
           email: user.email,
           role,
       };
-
+      await RefreshToken.deleteMany({user_id: user._id})
       console.log("Generating access and refresh tokens...");
       const accessToken = generateAccessToken(role, userDataToGenerateToken);
       const refreshToken = generateRefreshToken(role, userDataToGenerateToken);

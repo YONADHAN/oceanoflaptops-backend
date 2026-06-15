@@ -42,12 +42,12 @@ const admin_signin = async (req,res) => {
             return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.USER_NOT_FOUND });
         }
 
-        // Check if the user is verified
+       
         if (!user.isVerified) {
             return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.VERIFY_EMAIL_FIRST });
         }
 
-        // Compare provided password with stored hashed password
+        
         const isMatch = await bcryptjs.compare(password, user.password);
         if (!isMatch) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.PASSWORD_MISMATCH });
@@ -72,6 +72,7 @@ const admin_signin = async (req,res) => {
        
 
         await RefreshToken.deleteMany({ user_id: adminDataToGenerateToken._id });
+        
 
         const newRefreshToken = new RefreshToken({
           token: refreshToken,
