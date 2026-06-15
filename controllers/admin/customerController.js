@@ -1,5 +1,8 @@
 const User = require("../../models/userSchema");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const get_customers = async (req, res) => {
     try {
@@ -32,7 +35,7 @@ const get_customers = async (req, res) => {
      
       res.status(HTTP_STATUS.OK).json({
         success: true,
-        message: "Customers successfully fetched",
+        message: SUCCESS_MESSAGES.CUSTOMERS_FETCHED,
         customers,
         currentPage: page,
         totalPages,
@@ -51,9 +54,9 @@ const customer_unblock = async (req, res) => {
     await User.updateOne({ _id: id }, { $set: { isBlocked: false } });
     res
       .status(HTTP_STATUS.OK)
-      .json({ success: true, message: "Customer Successfully Unblocked" });
+      .json({ success: true, message: ERROR_MESSAGES.CUSTOMER_UNBLOCKED });
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server Error happened" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 const customer_block = async (req, res) => {
@@ -62,9 +65,9 @@ const customer_block = async (req, res) => {
     await User.updateOne({ _id: id }, { $set: { isBlocked: true } });
     res
       .status(HTTP_STATUS.OK)
-      .json({ success: true, message: "Successfully blocked the User" });
+      .json({ success: true, message: SUCCESS_MESSAGES.SUCCESSFULLY_BLOCKED_THE_USER });
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server Error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 

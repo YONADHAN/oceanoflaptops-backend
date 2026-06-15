@@ -3,6 +3,9 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
@@ -24,14 +27,14 @@ const forgotPasswordController = {
       if (!user) {
         return res
           .status(HTTP_STATUS.NOT_FOUND)
-          .json({ success: false, message: "User not found" });
+          .json({ success: false, message: ERROR_MESSAGES.USER_NOT_FOUND });
       }
 
       // Verify email matches user's registered email
       if (user.email !== email) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
-          message: "Email doesn't match your registered email",
+          message: ERROR_MESSAGES.EMAIL_MISMATCH,
         });
       }
 
@@ -77,13 +80,13 @@ const forgotPasswordController = {
 
       res.status(HTTP_STATUS.OK).json({
         success: true,
-        message: "A verification email has been sent. Please check your inbox.",
+        message: SUCCESS_MESSAGES.VERIFICATION_EMAIL_SENT,
       });
     } catch (error) {
       console.error("Error in requestPasswordReset:", error);
       res
         .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error sending verification email" });
+        .json({ success: false, message: ERROR_MESSAGES.EMAIL_SEND_FAILED });
     }
   },
 
@@ -101,17 +104,17 @@ const forgotPasswordController = {
       if (!user) {
         return res
           .status(HTTP_STATUS.NOT_FOUND)
-          .json({ success: false, message: "Invalid or expired token" });
+          .json({ success: false, message: ERROR_MESSAGES.INVALID_TOKEN });
       }
 
       res
         .status(HTTP_STATUS.OK)
-        .json({ success: true, message: "Token verified successfully" });
+        .json({ success: true, message: SUCCESS_MESSAGES.TOKEN_VERIFIED });
     } catch (error) {
       console.error("Error in verifyEmailToken:", error);
       res
         .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error verifying token" });
+        .json({ success: false, message: ERROR_MESSAGES.ERROR_VERIFYING_TOKEN });
     }
   },
 
@@ -129,7 +132,7 @@ const forgotPasswordController = {
       if (!user) {
         return res
           .status(HTTP_STATUS.NOT_FOUND)
-          .json({ success: false, message: "Invalid or expired token" });
+          .json({ success: false, message: ERROR_MESSAGES.INVALID_TOKEN });
       }
 
       // Hash new password
@@ -156,12 +159,12 @@ const forgotPasswordController = {
 
       res
         .status(HTTP_STATUS.OK)
-        .json({ success: true, message: "Password reset successfully" });
+        .json({ success: true, message: SUCCESS_MESSAGES.PASSWORD_RESET });
     } catch (error) {
       console.error("Error in resetPassword:", error);
       res
         .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error resetting password" });
+        .json({ success: false, message: ERROR_MESSAGES.PASSWORD_RESET_FAILED });
     }
   },
 
@@ -172,13 +175,13 @@ const forgotPasswordController = {
       // Fetch user by ID
       const user = await User.findById(userId);
       if (!user) {
-        return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.USER_NOT_FOUND });
       }
 
       // Check if old password matches
       const match = await bcrypt.compare(oldPassword, user.password);
       if (!match) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Old password is incorrect" });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.OLD_PASSWORD_INCORRECT });
       }
 
       // Hash the new password
@@ -190,7 +193,7 @@ const forgotPasswordController = {
       await user.save();
 
       // Respond with success
-      res.status(HTTP_STATUS.OK).json({ message: "Password changed successfully" });
+      res.status(HTTP_STATUS.OK).json({ message: SUCCESS_MESSAGES.PASSWORD_CHANGED_SUCCESS });
 
       // Send confirmation email
       try {
@@ -210,7 +213,7 @@ const forgotPasswordController = {
       }
     } catch (error) {
       console.error("Error changing password:", error);
-      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
     }
   },
   requestPasswordResetFromSignin: async (req, res) => {
@@ -224,7 +227,7 @@ const forgotPasswordController = {
       if (!user) {
         return res
           .status(HTTP_STATUS.NOT_FOUND)
-          .json({ success: false, message: "User not found" });
+          .json({ success: false, message: ERROR_MESSAGES.USER_NOT_FOUND });
       }
 
       // // Verify email matches user's registered email
@@ -233,7 +236,7 @@ const forgotPasswordController = {
       //     .status(400)
       //     .json({
       //       success: false,
-      //       message: "Email doesn't match your registered email",
+      //       message: SUCCESS_MESSAGES.EMAIL_MISMATCH,
       //     });
       // }
 
@@ -346,13 +349,13 @@ const forgotPasswordController = {
 
       res.status(HTTP_STATUS.OK).json({
         success: true,
-        message: "A verification email has been sent. Please check your inbox.",
+        message: SUCCESS_MESSAGES.VERIFICATION_EMAIL_SENT,
       });
     } catch (error) {
       console.error("Error in requestPasswordResetFromSignup:", error);
       res
         .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error sending verification email" });
+        .json({ success: false, message: ERROR_MESSAGES.EMAIL_SEND_FAILED });
     }
   },
 
@@ -369,7 +372,7 @@ const forgotPasswordController = {
       if (!user) {
         return res
           .status(HTTP_STATUS.NOT_FOUND)
-          .json({ success: false, message: "Invalid or expired token" });
+          .json({ success: false, message: ERROR_MESSAGES.INVALID_TOKEN });
       }
 
       // Hash new password
@@ -396,12 +399,12 @@ const forgotPasswordController = {
 
       res
         .status(HTTP_STATUS.OK)
-        .json({ success: true, message: "Password reset successfully" });
+        .json({ success: true, message: SUCCESS_MESSAGES.PASSWORD_RESET });
     } catch (error) {
       console.error("Error in resetPasswordFromSignup:", error);
       res
         .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error resetting password" });
+        .json({ success: false, message: ERROR_MESSAGES.PASSWORD_RESET_FAILED });
     }
   },
 };

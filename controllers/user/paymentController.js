@@ -2,6 +2,9 @@ const crypto = require("crypto");
 const Razorpay = require("razorpay");
 const Order = require("../../models/orderSchema");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const razorpayInstance = new Razorpay({
   key_id: "rzp_test_2aUGLgE6VrGTVa",
@@ -34,7 +37,7 @@ const verify_razorpay_payment = async (req, res) => {
     // if (!order) {
     //   return res
     //     .status(404)
-    //     .json({ success: false, message: "Order not found" });
+    //     .json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
     // }
 
     // order.paymentStatus = "Completed";
@@ -43,10 +46,10 @@ const verify_razorpay_payment = async (req, res) => {
 
     // return res.json({
     //   success: true,
-    //   message: "Payment verified and updated.",
+    //   message: SUCCESS_MESSAGES.PAYMENT_VERIFIED,
     // });
   } else {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Invalid signature" });
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.INVALID_SIGNATURE });
   }
 };
 
@@ -58,7 +61,7 @@ const retry_payment = async (req, res) => {
     if (!order) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ message: "Order not found", error: "Order not found" });
+        .json({ message: ERROR_MESSAGES.ORDER_NOT_FOUND, error: "Order not found" });
     }
 
     if (order.paymentStatus === "Completed") {
@@ -104,10 +107,10 @@ const verify_retry_razorpay_payment = async(req,res)=>{
 
     return res.json({
       success: true,
-      message: "Payment verified and updated.",
+      message: SUCCESS_MESSAGES.PAYMENT_VERIFIED,
     });
   } else {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Invalid signature" });
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.INVALID_SIGNATURE });
   }
 }
 

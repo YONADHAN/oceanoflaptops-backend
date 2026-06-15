@@ -1,6 +1,9 @@
 const Product = require("../../models/productSchema")
 const mongoose = require("mongoose");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 const public_get_products_by_category = async (req, res) => {
     try {
       const { id, page = 1, limit = 4 } = req.query;
@@ -9,7 +12,7 @@ const public_get_products_by_category = async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return res
           .status(HTTP_STATUS.BAD_REQUEST)
-          .json({ success: false, message: "Invalid category ID" });
+          .json({ success: false, message: ERROR_MESSAGES.INVALID_CATEGORY });
       }
   
       const categoryId = new mongoose.Types.ObjectId(id); 
@@ -31,11 +34,11 @@ const public_get_products_by_category = async (req, res) => {
         products,
         totalPages: Math.ceil(total / limit),
         currentPage: parseInt(page),
-        message: "Products successfully fetched",
+        message: SUCCESS_MESSAGES.PRODUCTS_FETCHED,
       });
     } catch (error) {
       console.error("Error fetching products:", error.message);
-      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server Error" });
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
     }
   };
 

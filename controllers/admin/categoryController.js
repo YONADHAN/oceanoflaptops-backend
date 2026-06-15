@@ -1,6 +1,9 @@
 const Category = require("../../models/categorySchema");
 const Product = require("../../models/productSchema")
 const HTTP_STATUS = require("../../utils/constants/httpStatus")
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 // console.log(Category);
 
 const addCategory = async (req, res) => {
@@ -44,7 +47,7 @@ const getCategory = async (req, res) => {
  
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: "Categories successfully fetched",
+      message: SUCCESS_MESSAGES.CATEGORIES_FETCHED,
       categories,
       currentPage: page,
       totalPages,
@@ -65,24 +68,24 @@ const getOneCategory = async (req, res) => {
     if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ success: false, message: "Invalid category ID" });
+        .json({ success: false, message: ERROR_MESSAGES.INVALID_CATEGORY });
     }
 
     const data = await Category.findById(id);
     if (!data) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "Category not found" });
+        .json({ success: false, message: ERROR_MESSAGES.CATEGORY_NOT_FOUND });
     }
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: "Category data fetched successfully",
+      message: SUCCESS_MESSAGES.CATEGORY_FETCHED,
       data,
     });
   } catch (error) {
     console.error("Error fetching category data:", error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 
@@ -99,19 +102,19 @@ const update_category = async (req, res) => {
     );
 
     if (!updatedCategory) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.CATEGORY_NOT_FOUND });
     }
 
     res
       .status(HTTP_STATUS.OK)
       .json({
-        message: "Category updated successfully",
+        message: SUCCESS_MESSAGES.CATEGORY_UPDATED,
         category: updatedCategory,
       });
   } catch (error) {
     res
       .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-      .json({ message: "Error updating category", error: error.message });
+      .json({ message: ERROR_MESSAGES.ERROR_UPDATING_CATEGORY, error: error.message });
   }
 };
 
@@ -125,16 +128,16 @@ const category_block = async (req, res) => {
     );
 
     if (!category) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.CATEGORY_NOT_FOUND });
     }
 
     res
       .status(HTTP_STATUS.OK)
-      .json({ message: "Category blocked successfully", category });
+      .json({ message: SUCCESS_MESSAGES.CATEGORY_BLOCKED, category });
   } catch (error) {
     res
       .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-      .json({ message: "Error blocking category", error: error.message });
+      .json({ message: ERROR_MESSAGES.ERROR_BLOCKING_CATEGORY, error: error.message });
   }
 };
 
@@ -148,16 +151,16 @@ const category_unblock = async (req, res) => {
     );
 
     if (!category) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.CATEGORY_NOT_FOUND });
     }
 
     res
       .status(HTTP_STATUS.OK)
-      .json({ message: "Category unblocked successfully", category });
+      .json({ message: SUCCESS_MESSAGES.CATEGORY_UNBLOCKED, category });
   } catch (error) {
     res
       .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-      .json({ message: "Error unblocking category", error: error.message });
+      .json({ message: ERROR_MESSAGES.ERROR_UNBLOCKING_CATEGORY, error: error.message });
   }
 };
 
@@ -167,7 +170,7 @@ const get_category_list = async (req, res) => {
     if (!categories.length) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
-        message: "No categories found.",
+        message: ERROR_MESSAGES.CATEGORY_NOT_FOUND,
       });
     }
     res.status(HTTP_STATUS.OK).json({
@@ -178,7 +181,7 @@ const get_category_list = async (req, res) => {
     console.error("Error fetching categories:", error); // Logs detailed error for debugging
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Server Error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -191,13 +194,13 @@ const  update_category_offer = async (req, res) => {
 
     // Validate offer percentage
     if (offer < 0 || offer > 100) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Offer should be between 0 and 100" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.OFFER_SHOULD_BE_BETWEEN_0_AND });
     }
 
     // Find and update category
     const category = await Category.findById(categoryId);
     if (!category) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.CATEGORY_NOT_FOUND });
     }
 
     category.categoryOffer = offer;  
@@ -215,11 +218,11 @@ const  update_category_offer = async (req, res) => {
       })
     );
 
-    res.status(HTTP_STATUS.OK).json({ success: true, message: "Category offer updated successfully", category });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: SUCCESS_MESSAGES.CATEGORY_OFFER_UPDATED, category });
     
   } catch (error) {
     console.error("Error updating category offer:", error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error", error });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR, error });
   }
 };
 

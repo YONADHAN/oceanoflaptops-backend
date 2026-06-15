@@ -7,6 +7,9 @@ const crypto = require('crypto');
 const nodemailer = require("nodemailer");
 const {generateAccessToken, generateRefreshToken} = require('../../utils/JWT/generateTokens')
 const HTTP_STATUS = require("../../utils/constants/httpStatus.js")
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -36,22 +39,22 @@ const admin_signin = async (req,res) => {
         const user = await User.findOne({ email });
     
         if (!user) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "User doesn't exist. Please sign up." });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.USER_NOT_FOUND });
         }
 
         // Check if the user is verified
         if (!user.isVerified) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Please verify your email before signing in." });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.VERIFY_EMAIL_FIRST });
         }
 
         // Compare provided password with stored hashed password
         const isMatch = await bcryptjs.compare(password, user.password);
         if (!isMatch) {
-            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Password does not match." });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.PASSWORD_MISMATCH });
         }
 
         if(!user.isAdmin) {
-            return  res.status(HTTP_STATUS.NOT_FOUND).json({message: "You are not authenticated"})
+            return  res.status(HTTP_STATUS.NOT_FOUND).json({message: ERROR_MESSAGES.YOU_ARE_NOT_AUTHENTICATED})
         }
 
         const adminDataToGenerateToken = {
@@ -88,7 +91,7 @@ const admin_signin = async (req,res) => {
           );
 
           res.status(HTTP_STATUS.OK).json({
-            message: "Admin Logged In successfully",
+            message: SUCCESS_MESSAGES.LOGIN_SUCCESS,
             adminData: adminDetails,
             success: true,
             accessToken,
@@ -98,7 +101,7 @@ const admin_signin = async (req,res) => {
 
     } catch (error) {
         //console.error("Error signing in:", error.message);
-        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error." });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
     }
 }
 
@@ -115,7 +118,7 @@ const  requestPasswordResetFromSignin = async (req, res) => {
     if (!user) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "User not found" });
+        .json({ success: false, message: ERROR_MESSAGES.USER_NOT_FOUND });
     }
 
   
@@ -146,13 +149,13 @@ const  requestPasswordResetFromSignin = async (req, res) => {
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: "A verification email has been sent. Please check your inbox.",
+      message: SUCCESS_MESSAGES.VERIFICATION_EMAIL_SENT,
     });
   } catch (error) {
     console.error("Error in requestPasswordResetFromSignup:", error);
     res
       .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-      .json({ success: false, message: "Error sending verification email" });
+      .json({ success: false, message: ERROR_MESSAGES.EMAIL_SEND_FAILED });
   }
   }
 

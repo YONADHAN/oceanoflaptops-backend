@@ -2,6 +2,9 @@
 const Product = require("../../models/productSchema"); 
 const Category = require("../../models/categorySchema"); 
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 
 const salePriceCalculator = async (regularPrice, productId) => {
@@ -55,14 +58,14 @@ const add_product = async (req, res) => {
     if (!category) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false, 
-        message: "Invalid category"
+        message: ERROR_MESSAGES.INVALID_CATEGORY
       });
     }
     // const salePrice = await salePriceCalculator(productSubmissionData.regularPrice, productSubmissionData._id);
     // if (!salePrice) {
     //   return res.status(HTTP_STATUS.BAD_REQUEST).json({
     //     success: false, 
-    //     message: "Failed to calculate sale price"
+    //     message: ERROR_MESSAGES.FAILED_TO_CALCULATE_SALE_PRICE
     //   });
     // }
 
@@ -80,7 +83,7 @@ const add_product = async (req, res) => {
 
     res.status(HTTP_STATUS.CREATED).json({
       success: true, 
-      message: "Product added successfully",
+      message: SUCCESS_MESSAGES.PRODUCT_ADDED,
       product: newProduct
     });
 
@@ -88,7 +91,7 @@ const add_product = async (req, res) => {
     //console.error("Error adding product:", error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false, 
-      message: "Server error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
       error: error.message
     });
   }
@@ -144,7 +147,7 @@ const getProducts = async (req, res) => {
   } catch (error) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'Error fetching products',
+      message: ERROR_MESSAGES.PRODUCTS_FETCH_FAILED,
       error: error.message,
     });
   }
@@ -162,7 +165,7 @@ const toggleBlockProduct = async (req, res) => {
     if (!product) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
-        message: "Product not found",
+        message: ERROR_MESSAGES.PRODUCT_NOT_FOUND,
       });
     }
 
@@ -223,7 +226,7 @@ const updateProduct = async (req, res) => {
       if (!existingProduct) {
         return res.status(HTTP_STATUS.NOT_FOUND).json({
           success: false,
-          message: "Product not found"
+          message: ERROR_MESSAGES.PRODUCT_NOT_FOUND
         });
       }
   
@@ -282,13 +285,13 @@ const updateProduct = async (req, res) => {
     if (!updatedProduct) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
-        message: "Product not found"
+        message: ERROR_MESSAGES.PRODUCT_NOT_FOUND
       });
     }
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: "Product updated successfully",
+      message: SUCCESS_MESSAGES.PRODUCT_UPDATED,
       product: updatedProduct
     });
 
@@ -296,7 +299,7 @@ const updateProduct = async (req, res) => {
     console.error("Error updating product:", error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Server error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
       error: error.message
     });
   }
@@ -313,7 +316,7 @@ const get_product = async (req, res) => {
     if (!product) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
-        message: "Product not found"
+        message: ERROR_MESSAGES.PRODUCT_NOT_FOUND
       });
     }
 
@@ -325,7 +328,7 @@ const get_product = async (req, res) => {
     console.error("Error fetching product:", error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Server error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
       error: error.message
     });
   }
@@ -337,12 +340,12 @@ const updateProductOffer = async (req, res) => {
     const offer = req.body.offer;
     console.log("Product offer  :  ", productId,"  ", offer,"%")
     if(offer<0 || offer>100) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({message: "Invalid offer value (must be between 0 and 100)"});
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({message: ERROR_MESSAGES.INVALID_OFFER_VALUE_MUST_BE_BETWEEN_0_AND});
     }  
 
     const product = await Product.findById(productId).populate('category');
     if (!product) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({message: "Product not found"});
+      return res.status(HTTP_STATUS.NOT_FOUND).json({message: ERROR_MESSAGES.PRODUCT_NOT_FOUND});
     }
     const maximumOffer = Math.max(offer, product.category.offer||0);
     const salePrice = (product.regularPrice - (maximumOffer * product.regularPrice) / 100).toFixed(0)
@@ -350,9 +353,9 @@ const updateProductOffer = async (req, res) => {
     product.salePrice = salePrice;
     await product.save();
    
-    res.status(HTTP_STATUS.OK).json({message: "Offer updated successfully", product});
+    res.status(HTTP_STATUS.OK).json({message: SUCCESS_MESSAGES.OFFER_UPDATED, product});
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({message: "Error updating offer", error: error.message});
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({message: ERROR_MESSAGES.ERROR_UPDATING_OFFER, error: error.message});
   }
 }
 

@@ -1,5 +1,8 @@
 const Product = require('../../models/productSchema');
 const HTTP_STATUS = require('../../utils/constants/httpStatus');
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const filterOptions = async (req, res) => {
   try {
@@ -63,7 +66,7 @@ const filterOptions = async (req, res) => {
 
    
 
-    res.status(HTTP_STATUS.OK).json({ success: true, message: "Filter is successfully fetched", fieldData: grandMother })
+    res.status(HTTP_STATUS.OK).json({ success: true, message: SUCCESS_MESSAGES.FILTER_IS_FETCHED, fieldData: grandMother })
   } catch (error) {
     console.error(error);
   }
@@ -124,7 +127,7 @@ const filterOptions = async (req, res) => {
 
 //   } catch (error) {
 //     console.error("Error fetching data:", error);
-//     res.status(500).json({ success: false, message: "Internal server error" });
+//     res.status(500).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
 //   }
 // };
 const gettingData = async (req, res) => {
@@ -212,7 +215,7 @@ const gettingData = async (req, res) => {
     console.error("Error fetching data:", error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Internal server error"
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR
     });
   }
 };

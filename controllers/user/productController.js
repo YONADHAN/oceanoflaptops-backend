@@ -7,6 +7,9 @@ const mongoose = require("mongoose");
 const Cookies = require("js-cookie");
 const { isValidObjectId } = require('mongoose');
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const  get_product_details = async (req, res) => {
   try {
@@ -16,7 +19,7 @@ const  get_product_details = async (req, res) => {
     if (!id || !isValidObjectId(id)) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
         success: false, 
-        message: "Invalid product ID" 
+        message: ERROR_MESSAGES.PRODUCT_NOT_FOUND 
       });
     }
 
@@ -27,7 +30,7 @@ const  get_product_details = async (req, res) => {
     if (!productDetails) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ 
         success: false, 
-        message: "Product details not found" 
+        message: ERROR_MESSAGES.PRODUCT_DETAILS_NOT_FOUND 
       });
     }
 
@@ -35,28 +38,28 @@ const  get_product_details = async (req, res) => {
     if (productDetails.isBlocked) {
       return res.status(HTTP_STATUS.FORBIDDEN).json({ 
         success: false, 
-        message: "Product is blocked by the admin" 
+        message: SUCCESS_MESSAGES.PRODUCT_BLOCKED 
       });
     }
 
     if (productDetails.category?.isBlocked) {
       return res.status(HTTP_STATUS.FORBIDDEN).json({ 
         success: false, 
-        message: "Category is blocked by the admin" 
+        message: SUCCESS_MESSAGES.CATEGORY_BLOCKED 
       });
     }
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
       productDetails,
-      message: "Product successfully fetched"
+      message: SUCCESS_MESSAGES.PRODUCT_FETCHED
     });
 
   } catch (error) {
     console.error('Product details fetch error:', error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ 
       success: false, 
-      message: "Internal server error" 
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR 
     });
   }
 };
@@ -68,7 +71,7 @@ const get_products_by_category = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ success: false, message: "Invalid category ID" });
+        .json({ success: false, message: ERROR_MESSAGES.INVALID_CATEGORY });
     }
 
     const categoryId = id;
@@ -77,11 +80,11 @@ const get_products_by_category = async (req, res) => {
     // Check if the category exists and is not blocked
     const category = await Category.findById(categoryId);
     if (!category) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Category not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.CATEGORY_NOT_FOUND });
     }
 
     if (category.isBlocked) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Category is blocked by the admin" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.CATEGORY_BLOCKED });
     }
 
     // Fetch products with pagination
@@ -99,11 +102,11 @@ const get_products_by_category = async (req, res) => {
       products,
       totalPages: Math.ceil(total / limit),
       currentPage: parseInt(page),
-      message: "Products successfully fetched",
+      message: SUCCESS_MESSAGES.PRODUCTS_FETCHED,
     });
   } catch (error) {
     console.error("Error fetching products:", error.message);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Internal server error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 
@@ -133,7 +136,7 @@ const get_products = async (req, res) => {
   } catch (error) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Error fetching products",
+      message: ERROR_MESSAGES.PRODUCTS_FETCH_FAILED,
       error: error.message
     });
   }
@@ -162,7 +165,7 @@ const get_all_products_paginated = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching products:", error.message);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server Error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 const get_quantity = async (req, res) => {
@@ -170,27 +173,27 @@ const get_quantity = async (req, res) => {
     const { productId } = req.body;
 
     if (!productId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Product ID is required." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.PRODUCT_ID_IS_REQUIRED });
     }
 
     const product = await Product.findById(productId).populate("category");
 
     if (!product) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Product not found." });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.PRODUCT_NOT_FOUND });
     }
 
     if (product.isBlocked) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: "This product has been blocked by the admin." });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: SUCCESS_MESSAGES.PRODUCT_BLOCKED });
     }
 
     if (product.category.isBlocked) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: "This product's category has been blocked by the admin." });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: SUCCESS_MESSAGES.CATEGORY_BLOCKED });
     }
 
     res.status(HTTP_STATUS.OK).json({ success: true, quantity: product.quantity });
   } catch (error) {
     //console.error("Error fetching product quantity:", error.message);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "An error occurred while fetching product quantity." });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.AN_ERROR_OCCURRED_WHILE_FETCHING_PRODUCT_QUANTITY });
   }
 };
 
@@ -227,7 +230,7 @@ const get_filter_options = async (req, res) => {
   } catch (error) {
     //console.error('Filter options error:', error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ 
-      message: 'Error retrieving filter options', 
+      message: ERROR_MESSAGES.ERROR_RETRIEVING_FILTER_OPTIONS, 
       error: error.message 
     });
   }
@@ -473,7 +476,7 @@ const filter_products = async (req, res) => {
   } catch (error) {
     console.error('Product filter error:', error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: 'Error filtering products',
+      message: ERROR_MESSAGES.ERROR_FILTERING_PRODUCTS,
       error: error.message,
     });
   }

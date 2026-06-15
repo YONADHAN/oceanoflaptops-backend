@@ -1,6 +1,9 @@
 
 const Wallet = require('../../models/walletSchema');
 const HTTP_STATUS = require('../../utils/constants/httpStatus');
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const get_wallet_history = async (req, res) => {
     try {
@@ -12,7 +15,7 @@ const get_wallet_history = async (req, res) => {
         const wallet = await Wallet.findOne({ userId: userId });
         
         if (!wallet) {
-            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Wallet not found" });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.WALLET_NOT_FOUND });
         }
 
         
@@ -26,13 +29,13 @@ const get_wallet_history = async (req, res) => {
         };
 
         res.status(HTTP_STATUS.OK).json({
-            message: "Wallet retrieved successfully",
+            message: SUCCESS_MESSAGES.WALLET_FETCHED,
             wallet: walletResponse,
             totalTransactions: wallet.transactions.length
         });
 
     } catch (error) {
-        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Error getting wallet", error: error.message });
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: ERROR_MESSAGES.ERROR_GETTING_WALLET, error: error.message });
     }
 };
 
@@ -43,7 +46,7 @@ const add_to_wallet = async (req, res) => {
         const description = req.body.description;
         
         if (isNaN(amount) || amount <= 0) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid amount" });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.INVALID_AMOUNT });
         }
 
         let wallet = await Wallet.findOne({ userId: userId });
@@ -66,12 +69,12 @@ const add_to_wallet = async (req, res) => {
         await wallet.save();
 
         res.status(HTTP_STATUS.OK).json({
-            message: "Amount added to wallet successfully",
+            message: SUCCESS_MESSAGES.AMOUNT_ADDED_TO_WALLET_SUCCESSFULLY,
             wallet
         });
     } catch (error) {
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            message: "Error adding to wallet",
+            message: ERROR_MESSAGES.ERROR_ADDING_TO_WALLET,
             error: error.message
         });
     }
@@ -83,17 +86,17 @@ const withdraw_from_wallet = async (req, res) => {
         const amount = parseFloat(req.body.amount);
 
         if (isNaN(amount) || amount <= 0) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid amount" });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.INVALID_AMOUNT });
         }
 
         const wallet = await Wallet.findOne({ userId: userId });
         
         if (!wallet) {
-            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Wallet not found" });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.WALLET_NOT_FOUND });
         }
 
         if (amount > wallet.balance) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Insufficient balance in wallet" });
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.INSUFFICIENT_BALANCE_IN_WALLET });
         }
 
         wallet.balance -= amount;
@@ -109,12 +112,12 @@ const withdraw_from_wallet = async (req, res) => {
         await wallet.save();
 
         res.status(HTTP_STATUS.OK).json({
-            message: "Amount withdrawn from wallet successfully",
+            message: SUCCESS_MESSAGES.AMOUNT_WITHDRAWN_FROM_WALLET_SUCCESSFULLY,
             wallet
         });
     } catch (error) {
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            message: "Error withdrawing from wallet",
+            message: ERROR_MESSAGES.ERROR_WITHDRAWING_FROM_WALLET,
             error: error.message
         });
     }
@@ -128,16 +131,16 @@ const wallet_balance = async (req, res) => {
         })
         
         if (!wallet) {
-            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Wallet not found" });
+            return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.WALLET_NOT_FOUND });
         }
         
         res.status(HTTP_STATUS.OK).json({
-            message: "Wallet balance retrieved successfully",
+            message: SUCCESS_MESSAGES.WALLET_BALANCE_FETCHED,
             balance: wallet.balance
         })
     } catch (error) {
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            message: "Error getting wallet balance",
+            message: ERROR_MESSAGES.ERROR_GETTING_WALLET_BALANCE,
             error: error.message
         })
     }

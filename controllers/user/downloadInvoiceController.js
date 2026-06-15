@@ -1,6 +1,8 @@
 const PDFDocument = require('pdfkit');
 const Order = require('../../models/orderSchema');
 const HTTP_STATUS = require('../../utils/constants/httpStatus');
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const generateInvoicePDF = async (order) => {
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -149,7 +151,7 @@ module.exports = {
       if (order.orderStatus !== 'Delivered') {
         return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Invoice download not available',
-          message: 'Invoice can only be downloaded for delivered orders'
+          message: ERROR_MESSAGES.INVOICE_CAN_ONLY_BE_DOWNLOADED_FOR_DELIVERED_ORDER
         });
       }
 

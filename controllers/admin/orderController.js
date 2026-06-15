@@ -2,6 +2,9 @@ const Order = require("../../models/orderSchema");
 const Product = require("../../models/productSchema");
 const Wallet = require("../../models/walletSchema");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const get_orders = async (req, res) => {
   const { page = 1, limit = 10, searchQuery  } = req.query;
@@ -44,7 +47,7 @@ const get_orders = async (req, res) => {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: error.message,
-      message: "Internal Server Error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -108,7 +111,7 @@ const  order_details_for_salesReport = async (req, res) => {
     });
     
   } catch (error) {
-     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({message: "Internal Server Error", error: error});
+     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR, error: error});
   }
 }
 
@@ -216,7 +219,7 @@ const order_for_salesReport = async (req, res) => {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       error: error.message,
-      message: "Internal Server Error"
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR
     });
   }
 };
@@ -231,7 +234,7 @@ const order_details = async (req, res) => {
     if (!order) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "Order not found" });
+        .json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
     }
     //console.log(order)
     res.status(HTTP_STATUS.OK).json({ success: true, order });
@@ -251,7 +254,7 @@ const order_status = async function (req, res) {
     if (!order) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ 
         success: false, 
-        message: "Order not found" 
+        message: ERROR_MESSAGES.ORDER_NOT_FOUND 
       });
     }
 
@@ -259,7 +262,7 @@ const order_status = async function (req, res) {
     if (order.orderStatus === "Cancelled") {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
         success: false, 
-        message: "Cannot update status - order is already cancelled" 
+        message: ERROR_MESSAGES.CANNOT_UPDATE_STATUS_ORDER_IS_ALREADY_CANCELLED 
       });
     }
 
@@ -267,7 +270,7 @@ const order_status = async function (req, res) {
     if (order.orderStatus === "Delivered" && status !== "Delivered") {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: "Cannot change status of delivered orders"
+        message: ERROR_MESSAGES.CANNOT_CHANGE_STATUS_OF_DELIVERED_ORDERS
       });
     }
 
@@ -322,10 +325,10 @@ const order_status = async function (req, res) {
 //     }
 //     const item = order.orderItems.find(i => i._id == itemId);
 //     if(!item) {
-//       return res.status(404).json({success: false, message: "Item not found"});
+//       return res.status(404).json({success: false, message: ERROR_MESSAGES.ITEM_NOT_FOUND});
 //     }
 //     if(item.returnRequest.requestStatus !== "Pending") {
-//       return res.status(400).json({success: false, message: "Return request has already been processed"});
+//       return res.status(400).json({success: false, message: ERROR_MESSAGES.RETURN_ALREADY_PROCESSED});
 //     }
 //     if(decision === "accepted") {
 //       item.returnRequest.requestStatus = "Approved";
@@ -340,7 +343,7 @@ const order_status = async function (req, res) {
 //     }
 //     const wallet = await Wallet.findOne({userId: order.user});
 //     if(!wallet) {
-//       return res.status(404).json({success: false, message: "User wallet not found"});
+//       return res.status(404).json({success: false, message: ERROR_MESSAGES.WALLET_NOT_FOUND});
 //     }
 //     if(decision === "accepted") {
 //       wallet.balance += amount;  
@@ -357,7 +360,7 @@ const order_status = async function (req, res) {
 
 //     const product = await Product.findById(item.product);
 //     if(!product) {
-//       return res.status(404).json({success: false, message: "Product not found"});
+//       return res.status(404).json({success: false, message: ERROR_MESSAGES.PRODUCT_NOT_FOUND});
 //     }
 //     product.quantity += 1;
 //     await product.save();
@@ -365,12 +368,12 @@ const order_status = async function (req, res) {
 //     }
 
 
-//     res.status(200).json({success: true, message: "Return request processed successfully"});
+//     res.status(200).json({success: true, message: SUCCESS_MESSAGES.RETURN_REQUEST_PROCESSED});
     
 
 //     console.log("return request id is " , JSON.stringify(req.body));
 //   } catch (error) {
-//     res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+//     res.status(500).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR, error: error.message });
 //   }
 // }
 
@@ -380,16 +383,16 @@ const return_request_management = async (req, res) => {
 
     const order = await Order.findOne({ orderId });
     if (!order) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Order not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
     }
 
     const item = order.orderItems.find(i => i._id == itemId);
     if (!item) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Item not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ITEM_NOT_FOUND });
     }
 
     if (item.returnRequest.requestStatus !== "Pending") {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Return request has already been processed" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.RETURN_ALREADY_PROCESSED });
     }
 
     item.returnRequest.requestStatus = decision === "accepted" ? "Approved" : "Rejected";
@@ -403,7 +406,7 @@ const return_request_management = async (req, res) => {
 
       const wallet = await Wallet.findOne({ userId: order.user });
       if (!wallet) {
-        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "User wallet not found" });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.WALLET_NOT_FOUND });
       }
 
       wallet.balance += amount + order.shippingFee;
@@ -419,7 +422,7 @@ const return_request_management = async (req, res) => {
 
       const product = await Product.findById(item.product);
       if (!product) {
-        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Product not found" });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.PRODUCT_NOT_FOUND });
       }
 
       product.quantity += 1;
@@ -438,9 +441,9 @@ const return_request_management = async (req, res) => {
 
     await order.save();
 
-    res.status(HTTP_STATUS.OK).json({ success: true, message: "Return request processed successfully" });
+    res.status(HTTP_STATUS.OK).json({ success: true, message: SUCCESS_MESSAGES.RETURN_REQUEST_PROCESSED });
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Internal Server Error", error: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR, error: error.message });
   }
 };
 

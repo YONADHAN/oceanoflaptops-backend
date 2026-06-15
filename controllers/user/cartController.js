@@ -8,6 +8,9 @@ const mongoose = require("mongoose");
 const { jwtDecode } = require("jwt-decode");
 const Cookies = require("js-cookie");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const ShippingFee = 15;
 
@@ -92,10 +95,10 @@ const checkingBlockedProduct = async (userId) => {
 const cartQuantityCheck = async (userId) => {
   const cart = await Cart.findOne({ userId: userId });
   if (!cart) {
-    return { success: false, message: "Cart not found" };
+    return { success: false, message: ERROR_MESSAGES.CART_NOT_FOUND };
   }
   if (cart.items.length === 0) {
-    return { success: true, message: "Cart is empty" };
+    return { success: true, message: SUCCESS_MESSAGES.CART_IS_EMPTY };
   }
   let totalQuantity = 0;
   cart.items.forEach((item) => {
@@ -112,11 +115,11 @@ const cartQuantityCheck = async (userId) => {
     }
   });
   // if (totalQuantity > 100) {
-  //   return { success: false, message: "Cart quantity exceeds the limit" };
+  //   return { success: false, message: SUCCESS_MESSAGES.CART_QUANTITY_EXCEEDS_THE_LIMIT };
   // }
   return {
     success: true,
-    message: "Cart quantity is within the limit",
+    message: SUCCESS_MESSAGES.CART_QUANTITY_IS_WITHIN_THE_LIMIT,
     totalQuantity: totalQuantity,
   };
 };
@@ -133,7 +136,7 @@ const refresh_cart = async (req, res) => {
       filteredItems: blockedResult.filteredItems,
     });
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 
@@ -147,7 +150,7 @@ const add_to_cart = async (req, res) => {
     } catch (error) {
       return res
         .status(HTTP_STATUS.UNAUTHORIZED)
-        .json({ success: false, message: "Invalid or expired token" });
+        .json({ success: false, message: ERROR_MESSAGES.INVALID_TOKEN });
     }
 
     const userId = decoded._id;
@@ -156,29 +159,29 @@ const add_to_cart = async (req, res) => {
     if (!product) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "Product not found" });
+        .json({ success: false, message: ERROR_MESSAGES.PRODUCT_NOT_FOUND });
     }
     if (product.isBlocked) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ success: false, message: "Product is blocked by the admin" });
+        .json({ success: false, message: SUCCESS_MESSAGES.PRODUCT_BLOCKED });
     }
     if (product.category.isBlocked) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ success: false, message: "Category is blocked by the admin" });
+        .json({ success: false, message: SUCCESS_MESSAGES.CATEGORY_BLOCKED });
     }
 
     if (product.quantity < quantity) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ success: false, message: "Product out of stock" });
+        .json({ success: false, message: ERROR_MESSAGES.PRODUCT_OUT_OF_STOCK });
     }
 
     if (product.status !== "Available") {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ success: false, message: "Product not available" });
+        .json({ success: false, message: SUCCESS_MESSAGES.PRODUCT_NOT_AVAILABLE });
     }
 
     let cart = await Cart.findOne({ userId });
@@ -199,7 +202,7 @@ const add_to_cart = async (req, res) => {
     if (!product.salePrice || !product.regularPrice) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: "Product pricing information is incomplete",
+        message: ERROR_MESSAGES.PRODUCT_PRICING_INFORMATION_IS_INCOMPLETE,
       });
     }
 
@@ -216,13 +219,13 @@ const add_to_cart = async (req, res) => {
       if (newQuantity > product.quantity) {
         return res
           .status(HTTP_STATUS.BAD_REQUEST)
-          .json({ success: false, message: "Product out of stock" });
+          .json({ success: false, message: ERROR_MESSAGES.PRODUCT_OUT_OF_STOCK });
       }
 
       if (newQuantity > 5) {
         return res
           .status(HTTP_STATUS.BAD_REQUEST)
-          .json({ success: false, message: "Maximum 5 quantity allowed" });
+          .json({ success: false, message: SUCCESS_MESSAGES.MAX_QUANTITY_EXCEEDED });
       }
 
       const newTotalPrice = newQuantity * product.salePrice;
@@ -252,7 +255,7 @@ const add_to_cart = async (req, res) => {
       if (quantity > 5) {
         return res
           .status(HTTP_STATUS.BAD_REQUEST)
-          .json({ success: false, message: "Maximum 5 quantity allowed" });
+          .json({ success: false, message: SUCCESS_MESSAGES.MAX_QUANTITY_EXCEEDED });
       }
 
       const totalPrice = quantity * product.salePrice;
@@ -295,7 +298,7 @@ const add_to_cart = async (req, res) => {
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: "Product added to cart",
+      message: SUCCESS_MESSAGES.PRODUCT_ADDED_TO_CART,
       cart: {
         items: cart.items,
         subTotal: cart.subTotal,
@@ -308,7 +311,7 @@ const add_to_cart = async (req, res) => {
     console.error("Error adding to cart:", error);
     return res
       .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-      .json({ success: false, message: "Internal server error" });
+      .json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 
@@ -327,20 +330,20 @@ const cart_data = async (req, res) => {
     if (!userId) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ success: false, message: "userId is required" });
+        .json({ success: false, message: SUCCESS_MESSAGES.USER_ID_REQUIRED });
     }
     // console.log(userId)
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "Cart not found" });
+        .json({ success: false, message: ERROR_MESSAGES.CART_NOT_FOUND });
     }
     //console.log("cart data:", cart);
     res.status(HTTP_STATUS.OK).json({ success: true, cart });
   } catch (error) {
     console.error("Error in cart_data:", error);
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Internal server error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 
@@ -352,7 +355,7 @@ const get_cart = async (req, res) => {
     if (!userId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: "userId is required",
+        message: ERROR_MESSAGES.USER_ID_REQUIRED,
       });
     }
 
@@ -360,7 +363,7 @@ const get_cart = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: "Invalid userId format",
+        message: ERROR_MESSAGES.INVALID_USER_ID,
       });
     }
 
@@ -375,7 +378,7 @@ const get_cart = async (req, res) => {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message:
-          "Cart is empty, or some products may get unavailable, add something before checkout...",
+          ERROR_MESSAGES.CART_IS_EMPTY_OR_SOME_PRODUCTS_MAY_GET_UNAVAILABLE,
       });
     }
 
@@ -416,7 +419,7 @@ const get_cart = async (req, res) => {
     if (cart.items.length === 0) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
-        message: "Cart is empty, add something before checkout...",
+        message: ERROR_MESSAGES.CART_IS_EMPTY_ADD_SOMETHING_BEFORE_CHECKOUT,
       });
     }
     // console.log("*********************filtered Items****************",filteredItems);
@@ -437,7 +440,7 @@ const get_cart = async (req, res) => {
     console.error("Error getting cart:", error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Internal server error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -450,7 +453,7 @@ const get_cart_items = async (req, res) => {
     if (!userId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: "userId is required",
+        message: ERROR_MESSAGES.USER_ID_REQUIRED,
       });
     }
     await globalFieldUpdation(userId);
@@ -458,7 +461,7 @@ const get_cart_items = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        message: "Invalid userId format",
+        message: ERROR_MESSAGES.INVALID_USER_ID,
       });
     }
 
@@ -472,7 +475,7 @@ const get_cart_items = async (req, res) => {
     if (!cart || cart.items.length === 0) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
-        message: "No items in cart",
+        message: ERROR_MESSAGES.NO_ITEMS_IN_CART,
       });
     }
     // console.log("cart is ", cart)
@@ -511,20 +514,20 @@ const get_cart_items = async (req, res) => {
       return res.status(HTTP_STATUS.OK).json({
         success: true,
         cartItems: filteredItems,
-        message: "Some items were removed because they are no longer available",
+        message: SUCCESS_MESSAGES.SOME_ITEMS_WERE_REMOVED_BECAUSE_THEY_ARE_NO_LONGER,
       });
     }
     await globalFieldUpdation(userId);
     return res.status(HTTP_STATUS.OK).json({
       success: true,
       cartItems: filteredItems,
-      message: "Cart Items were successfully retrieved.",
+      message: SUCCESS_MESSAGES.CART_ITEMS_WERE_SUCCESSFULLY_RETRIEVED,
     });
   } catch (error) {
     console.error("Error getting cart items:", error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Internal server error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -537,7 +540,7 @@ const remove_from_cart = async (req, res) => {
     if (!cart) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "Cart not found" });
+        .json({ success: false, message: ERROR_MESSAGES.CART_NOT_FOUND });
     }
 
     const itemIndex = cart.items.findIndex(
@@ -547,7 +550,7 @@ const remove_from_cart = async (req, res) => {
     if (itemIndex === -1) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "Product not found in cart" });
+        .json({ success: false, message: SUCCESS_MESSAGES.PRODUCT_NOT_FOUND_IN_CART });
     }
 
     // Remove the item from the items array
@@ -556,12 +559,12 @@ const remove_from_cart = async (req, res) => {
     await globalFieldUpdation(userId);
     return res
       .status(HTTP_STATUS.OK)
-      .json({ success: true, message: "Product removed from cart" });
+      .json({ success: true, message: SUCCESS_MESSAGES.PRODUCT_REMOVED_FROM_CART });
   } catch (error) {
     console.error("Error removing from cart:", error);
     return res
       .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-      .json({ success: false, message: "Internal server error" });
+      .json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
   }
 };
 
@@ -590,14 +593,14 @@ const processCheckout = async (req, res) => {
     if (!token) {
       return res
         .status(HTTP_STATUS.UNAUTHORIZED)
-        .json({ success: false, message: "No token provided" });
+        .json({ success: false, message: SUCCESS_MESSAGES.NO_TOKEN_PROVIDED });
     }
 
     // Validate order items and calculate prices
     if (!orderItems?.length) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
-        .json({ success: false, message: "Order items are required" });
+        .json({ success: false, message: SUCCESS_MESSAGES.ORDER_ITEMS_ARE_REQUIRED });
     }
     // console.log(
     //   "payament status just before paymentStatusUpdated is : ",
@@ -610,7 +613,7 @@ const processCheckout = async (req, res) => {
       if (!razorpayPaymentId) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
-          message: "Razorpay payment ID is required for Razor pay payments",
+          message: ERROR_MESSAGES.RAZORPAY_PAYMENT_ID_IS_REQUIRED_FOR_RAZOR_PAY_PAYM,
         });
       }
       paymentStatusUpdated = paymentStatus;
@@ -620,12 +623,12 @@ const processCheckout = async (req, res) => {
       if (!wallet) {
         return res
           .status(HTTP_STATUS.BAD_REQUEST)
-          .json({ success: false, message: "No wallet found, create wallet" });
+          .json({ success: false, message: SUCCESS_MESSAGES.NO_WALLET_FOUND_CREATE_WALLET });
       }
       if (wallet.balance < totalAmount+shippingFee) {
         return res
           .status(HTTP_STATUS.BAD_REQUEST)
-          .json({ success: false, message: "Insufficient balance in wallet" });
+          .json({ success: false, message: SUCCESS_MESSAGES.INSUFFICIENT_BALANCE_IN_WALLET });
       }
       wallet.balance -= totalAmount+shippingFee;
 

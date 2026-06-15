@@ -6,6 +6,9 @@ const {generateAccessToken,generateRefreshToken} = require("../utils/JWT/generat
 const { OAuth2Client } = require('google-auth-library');
 const storeToken = require("../utils/JWT/storeCookies");
 const HTTP_STATUS = require("../utils/constants/httpStatus");
+const SUCCESS_MESSAGES = require("../utils/constants/successMessages");
+const ERROR_MESSAGES = require("../utils/constants/errorMessages");
+
 
 
 
@@ -20,7 +23,7 @@ const refreshAccessToken = async (req, res) => {
     if (!refreshToken) {
       console.log("~~~~~Refreshing Failed~~~~~");
       return res.status(HTTP_STATUS.FORBIDDEN).json({
-        message: "Refresh token expired. Login to your account.",
+        message: SUCCESS_MESSAGES.REFRESH_TOKEN_EXPIRED_LOGIN_TO_YOUR_ACCOUNT,
         success: false,
       });
     }
@@ -30,7 +33,7 @@ const refreshAccessToken = async (req, res) => {
     if (!tokenDoc) {
       console.log("~~~~~Refreshing Failed~~~~~");
       return res.status(HTTP_STATUS.FORBIDDEN).json({
-        message: "Invalid refresh token.",
+        message: ERROR_MESSAGES.INVALID_REFRESH_TOKEN,
         success: false,
       });
     }
@@ -51,7 +54,7 @@ const refreshAccessToken = async (req, res) => {
     // Ensure the role in the token is valid
     if (!roleSecrets[role]) {
       return res.status(HTTP_STATUS.FORBIDDEN).json({
-        message: "Invalid role in refresh token.",
+        message: ERROR_MESSAGES.INVALID_ROLE_IN_REFRESH_TOKEN,
         success: false,
         role,
       });
@@ -71,7 +74,7 @@ const refreshAccessToken = async (req, res) => {
       });
 
       return res.status(HTTP_STATUS.FORBIDDEN).json({
-        message: "Refresh token expired. Login to your account.",
+        message: SUCCESS_MESSAGES.REFRESH_TOKEN_EXPIRED_LOGIN_TO_YOUR_ACCOUNT,
         success: false,
       });
     }
@@ -96,7 +99,7 @@ const refreshAccessToken = async (req, res) => {
     console.log("~~~~~Refreshing Completed~~~~~");
 
     return res.status(HTTP_STATUS.OK).json({
-      message: "Access token created successfully.",
+      message: SUCCESS_MESSAGES.ACCESS_TOKEN_CREATED,
       success: true,
       access_token: newAccessToken,
       role,
@@ -104,7 +107,7 @@ const refreshAccessToken = async (req, res) => {
   } catch (error) {
     console.error("Error in Refresh Token:", error.message);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Something went wrong.",
+      message: ERROR_MESSAGES.SOMETHING_WENT_WRONG,
       success: false,
       error: error.message,
     });
@@ -142,7 +145,7 @@ const googleAuth = async (req, res) => {
 
       if (!payload.email_verified) {
           console.warn("Unverified email:", payload.email);
-          return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Email not verified" });
+          return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: ERROR_MESSAGES.EMAIL_NOT_VERIFIED });
       }
 
       const { name, email, sub, picture } = payload;
@@ -157,7 +160,7 @@ const googleAuth = async (req, res) => {
       if (user && user.isBlocked) {
           console.warn("Blocked user attempted to log in:", email);
           return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-              message: "Your account has been blocked. Please contact the support team.",
+              message: ERROR_MESSAGES.YOUR_ACCOUNT_HAS_BEEN_BLOCKED_PLEASE_CONTACT_THE_S,
           });
       }
 
@@ -231,7 +234,7 @@ const googleAuth = async (req, res) => {
   } catch (error) {
       console.error("Google Auth Error:", error.stack || error);
       res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-          message: "Internal server error. Please try again.",
+          message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
       });
   }
 };
@@ -243,26 +246,26 @@ const RemoveRefreshToken = async (req, res) => {
   try {
     // Validate user ID
     if (!id) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "User ID is required" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.USER_ID_IS_REQUIRED });
     }
 
     // Find and remove refresh token
     const refreshToken = await RefreshToken.findOneAndDelete({ user_id: id });
     if (!refreshToken) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Refresh token not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.REFRESH_TOKEN_NOT_FOUND });
     }
 
     // Successfully deleted
     return res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: "The refresh token was successfully deleted",
+      message: SUCCESS_MESSAGES.THE_REFRESH_TOKEN_WAS_DELETED,
     });
   } catch (error) {
     // Log error and send server error response
     console.error("Error deleting refresh token:", error);
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Internal server error",
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
     });
   }
 };

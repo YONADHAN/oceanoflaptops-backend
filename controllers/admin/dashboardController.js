@@ -1,6 +1,8 @@
 
 const Order = require("../../models/orderSchema");
 const HTTP_STATUS = require('../../utils/constants/httpStatus');
+const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+
 
 const generateReports = async (req, res) => {
     const { startDate, endDate, limit = 10, interval = "day" } = req.body;
@@ -147,7 +149,7 @@ const generateReports = async (req, res) => {
         console.error("Error generating reports:", error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
             success: false,
-            message: "Internal Server Error",
+            message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
             error: error.message
         });
     }
