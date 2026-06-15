@@ -1,12 +1,13 @@
 const PDFDocument = require('pdfkit');
 const Order = require('../../models/orderSchema');
+const HTTP_STATUS = require('../../utils/constants/httpStatus');
 
 const generateInvoicePDF = async (order) => {
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
   const buffers = [];
   doc.on('data', buffers.push.bind(buffers));
 
-  // Calculate totals based on your data structure
+  // Calculate totals based on  data structure
   const subtotal = order.totalAmount || 0;
   const originalTotal = order.orderedAmount || 0;
   const totalDiscount = order.totalDiscount || 0;
@@ -23,8 +24,8 @@ const generateInvoicePDF = async (order) => {
     .text('Company Address', 50, 115)
     .text('GSTIN: XXXXXXXXXXXXX', 50, 130);
 
-  // Order Details (Right Side) - Adjusted positioning and width
-  const rightColumnX = 300; // Moved left to prevent overflow
+  // Order Details (Right Side) 
+  const rightColumnX = 300; 
   doc.text('Invoice Date: ' + new Date(order.placedAt).toLocaleDateString(), rightColumnX, 100)
     .text('Invoice No: ' + (order.orderId || 'N/A'), rightColumnX, 115)
     .text('Order Status: ' + order.orderStatus, rightColumnX, 130)
@@ -142,11 +143,11 @@ module.exports = {
 
       if (!order) {
         console.log('No Order Found for ID:', req.params.orderId);
-        return res.status(404).json({ error: 'Order not found' });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Order not found' });
       }
 
       if (order.orderStatus !== 'Delivered') {
-        return res.status(403).json({
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
           error: 'Invoice download not available',
           message: 'Invoice can only be downloaded for delivered orders'
         });
@@ -162,7 +163,7 @@ module.exports = {
       res.send(pdfBuffer);
     } catch (error) {
       console.error('Full Invoice Download Error:', error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Invoice generation failed',
         details: error.message
       });

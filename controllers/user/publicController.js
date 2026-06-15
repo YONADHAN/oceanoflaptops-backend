@@ -1,5 +1,6 @@
 const Product = require("../../models/productSchema")
 const mongoose = require("mongoose");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 const public_get_products_by_category = async (req, res) => {
     try {
       const { id, page = 1, limit = 4 } = req.query;
@@ -7,15 +8,15 @@ const public_get_products_by_category = async (req, res) => {
       // Validate ObjectId
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return res
-          .status(400)
+          .status(HTTP_STATUS.BAD_REQUEST)
           .json({ success: false, message: "Invalid category ID" });
       }
   
-      const categoryId = new mongoose.Types.ObjectId(id); // Correct usage
-      // No need for 'new'
+      const categoryId = new mongoose.Types.ObjectId(id); 
+    
       const skip = (page - 1) * limit;
   
-      // Fetch products with pagination
+     
       const products = await Product.find({ category: categoryId })
         .select(
           "productName salePrice rating productImage regularPrice description quantity status"
@@ -25,7 +26,7 @@ const public_get_products_by_category = async (req, res) => {
   
       const total = await Product.countDocuments({ category: categoryId });
   
-      res.status(200).json({
+      res.status(HTTP_STATUS.OK).json({
         success: true,
         products,
         totalPages: Math.ceil(total / limit),
@@ -34,7 +35,7 @@ const public_get_products_by_category = async (req, res) => {
       });
     } catch (error) {
       console.error("Error fetching products:", error.message);
-      res.status(500).json({ success: false, message: "Server Error" });
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Server Error" });
     }
   };
 

@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const Razorpay = require("razorpay");
 const Order = require("../../models/orderSchema");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 
 const razorpayInstance = new Razorpay({
   key_id: "rzp_test_2aUGLgE6VrGTVa",
@@ -14,9 +15,9 @@ const create_razorpay_order = async (req, res) => {
       currency: "INR",
       receipt: "order_rcptid_11",
     });
-    res.status(200).json(order);
+    res.status(HTTP_STATUS.OK).json(order);
   } catch (error) {
-    res.status(500).json({ error: "Error creating order" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: "Error creating order" });
   }
 };
 
@@ -45,7 +46,7 @@ const verify_razorpay_payment = async (req, res) => {
     //   message: "Payment verified and updated.",
     // });
   } else {
-    res.status(400).json({ success: false, message: "Invalid signature" });
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Invalid signature" });
   }
 };
 
@@ -56,12 +57,12 @@ const retry_payment = async (req, res) => {
 
     if (!order) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ message: "Order not found", error: "Order not found" });
     }
 
     if (order.paymentStatus === "Completed") {
-      return res.status(400).json({ error: "Payment is already completed" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Payment is already completed" });
     }
 
     const razorpayOrder = await razorpayInstance.orders.create({
@@ -73,10 +74,10 @@ const retry_payment = async (req, res) => {
     order.razorpayPaymentId = razorpayOrder.id;
     await order.save();
 
-    res.status(200).json(razorpayOrder);
+    res.status(HTTP_STATUS.OK).json(razorpayOrder);
   } catch (error) {
     console.error("Error in retry payment:", error);
-    res.status(500).json({ error: "Error retrying payment" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ error: "Error retrying payment" });
   }
 };
 
@@ -93,7 +94,7 @@ const verify_retry_razorpay_payment = async(req,res)=>{
 
     if (!order) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Order not found" });
     }
 
@@ -106,7 +107,7 @@ const verify_retry_razorpay_payment = async(req,res)=>{
       message: "Payment verified and updated.",
     });
   } else {
-    res.status(400).json({ success: false, message: "Invalid signature" });
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Invalid signature" });
   }
 }
 

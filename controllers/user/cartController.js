@@ -7,6 +7,7 @@ const Wallet = require("../../models/walletSchema");
 const mongoose = require("mongoose");
 const { jwtDecode } = require("jwt-decode");
 const Cookies = require("js-cookie");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 
 const ShippingFee = 15;
 
@@ -132,7 +133,7 @@ const refresh_cart = async (req, res) => {
       filteredItems: blockedResult.filteredItems,
     });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
   }
 };
 
@@ -145,7 +146,7 @@ const add_to_cart = async (req, res) => {
       decoded = jwtDecode(token);
     } catch (error) {
       return res
-        .status(401)
+        .status(HTTP_STATUS.UNAUTHORIZED)
         .json({ success: false, message: "Invalid or expired token" });
     }
 
@@ -154,29 +155,29 @@ const add_to_cart = async (req, res) => {
     const product = await Product.findById(productId).populate("category");
     if (!product) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Product not found" });
     }
     if (product.isBlocked) {
       return res
-        .status(400)
+        .status(HTTP_STATUS.BAD_REQUEST)
         .json({ success: false, message: "Product is blocked by the admin" });
     }
     if (product.category.isBlocked) {
       return res
-        .status(400)
+        .status(HTTP_STATUS.BAD_REQUEST)
         .json({ success: false, message: "Category is blocked by the admin" });
     }
 
     if (product.quantity < quantity) {
       return res
-        .status(400)
+        .status(HTTP_STATUS.BAD_REQUEST)
         .json({ success: false, message: "Product out of stock" });
     }
 
     if (product.status !== "Available") {
       return res
-        .status(400)
+        .status(HTTP_STATUS.BAD_REQUEST)
         .json({ success: false, message: "Product not available" });
     }
 
@@ -196,7 +197,7 @@ const add_to_cart = async (req, res) => {
         item.productId.toString() === productId && item.status !== "Cancelled"
     );
     if (!product.salePrice || !product.regularPrice) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: "Product pricing information is incomplete",
       });
@@ -214,13 +215,13 @@ const add_to_cart = async (req, res) => {
 
       if (newQuantity > product.quantity) {
         return res
-          .status(400)
+          .status(HTTP_STATUS.BAD_REQUEST)
           .json({ success: false, message: "Product out of stock" });
       }
 
       if (newQuantity > 5) {
         return res
-          .status(400)
+          .status(HTTP_STATUS.BAD_REQUEST)
           .json({ success: false, message: "Maximum 5 quantity allowed" });
       }
 
@@ -250,7 +251,7 @@ const add_to_cart = async (req, res) => {
     } else {
       if (quantity > 5) {
         return res
-          .status(400)
+          .status(HTTP_STATUS.BAD_REQUEST)
           .json({ success: false, message: "Maximum 5 quantity allowed" });
       }
 
@@ -292,7 +293,7 @@ const add_to_cart = async (req, res) => {
     await cart.save();
     await globalFieldUpdation(userId);
 
-    return res.status(200).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "Product added to cart",
       cart: {
@@ -306,7 +307,7 @@ const add_to_cart = async (req, res) => {
   } catch (error) {
     console.error("Error adding to cart:", error);
     return res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ success: false, message: "Internal server error" });
   }
 };
@@ -325,21 +326,21 @@ const cart_data = async (req, res) => {
     const userId = req.body.userId;
     if (!userId) {
       return res
-        .status(400)
+        .status(HTTP_STATUS.BAD_REQUEST)
         .json({ success: false, message: "userId is required" });
     }
     // console.log(userId)
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Cart not found" });
     }
     //console.log("cart data:", cart);
-    res.status(200).json({ success: true, cart });
+    res.status(HTTP_STATUS.OK).json({ success: true, cart });
   } catch (error) {
     console.error("Error in cart_data:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -349,7 +350,7 @@ const get_cart = async (req, res) => {
 
     // Input validation
     if (!userId) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: "userId is required",
       });
@@ -357,7 +358,7 @@ const get_cart = async (req, res) => {
 
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: "Invalid userId format",
       });
@@ -371,7 +372,7 @@ const get_cart = async (req, res) => {
     });
 
     if (!cart || cart.items.length === 0) {
-      return res.status(404).json({
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message:
           "Cart is empty, or some products may get unavailable, add something before checkout...",
@@ -413,14 +414,14 @@ const get_cart = async (req, res) => {
       });
     }
     if (cart.items.length === 0) {
-      return res.status(404).json({
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: "Cart is empty, add something before checkout...",
       });
     }
     // console.log("*********************filtered Items****************",filteredItems);
     await globalFieldUpdation(userId);
-    return res.status(200).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       cart: {
         items: filteredItems,
@@ -434,7 +435,7 @@ const get_cart = async (req, res) => {
     });
   } catch (error) {
     console.error("Error getting cart:", error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Internal server error",
     });
@@ -447,7 +448,7 @@ const get_cart_items = async (req, res) => {
 
     // Best practice: Add input validation
     if (!userId) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: "userId is required",
       });
@@ -455,7 +456,7 @@ const get_cart_items = async (req, res) => {
     await globalFieldUpdation(userId);
     // Add proper error handling for invalid ObjectId
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: "Invalid userId format",
       });
@@ -469,7 +470,7 @@ const get_cart_items = async (req, res) => {
     });
 
     if (!cart || cart.items.length === 0) {
-      return res.status(404).json({
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: "No items in cart",
       });
@@ -507,21 +508,21 @@ const get_cart_items = async (req, res) => {
         },
       });
       await globalFieldUpdation(userId);
-      return res.status(200).json({
+      return res.status(HTTP_STATUS.OK).json({
         success: true,
         cartItems: filteredItems,
         message: "Some items were removed because they are no longer available",
       });
     }
     await globalFieldUpdation(userId);
-    return res.status(200).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       cartItems: filteredItems,
       message: "Cart Items were successfully retrieved.",
     });
   } catch (error) {
     console.error("Error getting cart items:", error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Internal server error",
     });
@@ -535,7 +536,7 @@ const remove_from_cart = async (req, res) => {
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Cart not found" });
     }
 
@@ -545,7 +546,7 @@ const remove_from_cart = async (req, res) => {
 
     if (itemIndex === -1) {
       return res
-        .status(404)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Product not found in cart" });
     }
 
@@ -554,12 +555,12 @@ const remove_from_cart = async (req, res) => {
     await cart.save();
     await globalFieldUpdation(userId);
     return res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({ success: true, message: "Product removed from cart" });
   } catch (error) {
     console.error("Error removing from cart:", error);
     return res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ success: false, message: "Internal server error" });
   }
 };
@@ -588,14 +589,14 @@ const processCheckout = async (req, res) => {
       req.headers.authorization?.split(" ")[1] || req.cookies.user_access_token;
     if (!token) {
       return res
-        .status(401)
+        .status(HTTP_STATUS.UNAUTHORIZED)
         .json({ success: false, message: "No token provided" });
     }
 
     // Validate order items and calculate prices
     if (!orderItems?.length) {
       return res
-        .status(400)
+        .status(HTTP_STATUS.NOT_FOUND)
         .json({ success: false, message: "Order items are required" });
     }
     // console.log(
@@ -607,7 +608,7 @@ const processCheckout = async (req, res) => {
       paymentStatusUpdated = "Pending";
     } else if (paymentMethod === "Razor pay") {
       if (!razorpayPaymentId) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
           message: "Razorpay payment ID is required for Razor pay payments",
         });
@@ -618,12 +619,12 @@ const processCheckout = async (req, res) => {
       const wallet = await Wallet.findOne({ userId: user });
       if (!wallet) {
         return res
-          .status(400)
+          .status(HTTP_STATUS.BAD_REQUEST)
           .json({ success: false, message: "No wallet found, create wallet" });
       }
       if (wallet.balance < totalAmount+shippingFee) {
         return res
-          .status(400)
+          .status(HTTP_STATUS.BAD_REQUEST)
           .json({ success: false, message: "Insufficient balance in wallet" });
       }
       wallet.balance -= totalAmount+shippingFee;
@@ -657,7 +658,7 @@ const processCheckout = async (req, res) => {
     for (const item of orderItems) {
       const product = await Product.findById(item.product);
       if (!product) {
-        return res.status(404).json({
+        return res.status(HTTP_STATUS.NOT_FOUND).json({
           success: false,
           // message: `Product with ID ${item.product} not found`,
           message: `Product not found`,
@@ -666,7 +667,7 @@ const processCheckout = async (req, res) => {
 
       // Check stock availability
       if (product.quantity < item.quantity) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
           message: `Insufficient stock for ${product.productName}`,
         });
@@ -687,7 +688,7 @@ const processCheckout = async (req, res) => {
     //   orderStatus: "Pending",
     //   paymentMethod,
     //   paymentStatus: paymentStatusUpdated,
-    //   razorpayPaymentId, // ✅ Ensure this is not undefined
+    //   razorpayPaymentId, 
     //   totalDiscount,
     //   couponDiscount,
     //   shippingFee,
@@ -741,7 +742,7 @@ const processCheckout = async (req, res) => {
       console.log("No cart found for this user.");
     }
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       orderId: savedOrder.orderId,
       orderData: {
@@ -760,7 +761,7 @@ const processCheckout = async (req, res) => {
     });
   } catch (error) {
     console.error("Checkout Error:", error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || "Failed to process checkout",
     });

@@ -1,9 +1,7 @@
-const Order = require("../../models/orderSchema");
+
 const Coupon = require("../../models/couponSchema");
 const User = require("../../models/userSchema");
-const Cart = require("../../models/cartSchema");
-const Cookies = require("js-cookie");
-const { jwtDecode } = require("jwt-decode");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 const apply_coupon = async (req, res) => {
   try {
     const { couponCode, amount, userId } = req.body;
@@ -11,23 +9,23 @@ const apply_coupon = async (req, res) => {
     const coupon = await Coupon.findOne({ couponCode });
 
     if (!coupon) {
-      return res.status(400).json({ message: "Invalid coupon code." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid coupon code." });
     }
 
     if (amount < coupon.minPurchaseAmount) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         message:
           "Invalid coupon code. Your purchase amount does not meet the minimum requirement.",
       });
     }
 
     if (coupon.startDate > Date.now() || coupon.endDate < Date.now()) {
-      return res.status(400).json({ message: "Coupon expired" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Coupon expired" });
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
     }
 
     const isCouponAlreadyApplied = user.appliedCoupons.some(
@@ -36,21 +34,21 @@ const apply_coupon = async (req, res) => {
     );
 
     if (isCouponAlreadyApplied) {
-      return res.status(400).json({ message: "Coupon already applied" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Coupon already applied" });
     }
 
     let discountAmount = (coupon.discountPercentage / 100) * amount;
     let finalDiscount = Math.min(discountAmount, coupon.maxDiscountPrice);
     let totalAmount = amount - finalDiscount;
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       message: "Successfully applied coupon",
       totalAmount,
       discountApplied: finalDiscount,
     });
   } catch (error) {
     res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ message: "Internal Server error", error: error.message });
   }
 };
@@ -60,11 +58,11 @@ const apply_coupon_ultimate = async (req, res) => {
     const { couponCode, userId } = req.body;
     const coupon = await Coupon.findOne({ couponCode });
     if (!coupon) {
-      return res.status(400).json({ message: "Invalid coupon code." });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid coupon code." });
     }
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
     }
     coupon.users.push({
       userId,
@@ -80,7 +78,7 @@ const apply_coupon_ultimate = async (req, res) => {
 
   } catch (error) {
     res
-      .status(500)
+      .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
       .json({ message: "Internal Server error", error: error.message });
     console.log(error.message);
   }
@@ -150,16 +148,16 @@ const get_applied_coupons = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
     }
     if (user.appliedCoupons.length === 0) {
-      return res.status(404).json({ message: "No coupons applied" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "No coupons applied" });
     }
     res
-      .status(200)
+      .status(HTTP_STATUS.OK)
       .json({ message: "Applied coupons", coupons: user.appliedCoupons });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server error", error });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server error", error });
   }
 };
 
@@ -172,9 +170,9 @@ const get_suitable_coupons = async (req, res) => {
     // if (coupons.length === 0) {
     //   return res.status(404).json({ message: "No suitable coupons found" });
     // }
-    res.status(200).json({ message: "Suitable coupons", coupons });
+    res.status(HTTP_STATUS.OK).json({ message: "Suitable coupons", coupons });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error", error });
   }
 };
 

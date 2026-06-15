@@ -2,6 +2,7 @@ const User = require("../../models/userSchema");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
+const HTTP_STATUS = require("../../utils/constants/httpStatus");
 
 // Configure nodemailer
 const transporter = nodemailer.createTransport({
@@ -22,13 +23,13 @@ const forgotPasswordController = {
       const user = await User.findById(userId);
       if (!user) {
         return res
-          .status(404)
+          .status(HTTP_STATUS.NOT_FOUND)
           .json({ success: false, message: "User not found" });
       }
 
       // Verify email matches user's registered email
       if (user.email !== email) {
-        return res.status(400).json({
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
           message: "Email doesn't match your registered email",
         });
@@ -74,14 +75,14 @@ const forgotPasswordController = {
         `,
       });
 
-      res.status(200).json({
+      res.status(HTTP_STATUS.OK).json({
         success: true,
         message: "A verification email has been sent. Please check your inbox.",
       });
     } catch (error) {
       console.error("Error in requestPasswordReset:", error);
       res
-        .status(500)
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
         .json({ success: false, message: "Error sending verification email" });
     }
   },
@@ -99,17 +100,17 @@ const forgotPasswordController = {
 
       if (!user) {
         return res
-          .status(404)
+          .status(HTTP_STATUS.NOT_FOUND)
           .json({ success: false, message: "Invalid or expired token" });
       }
 
       res
-        .status(200)
+        .status(HTTP_STATUS.OK)
         .json({ success: true, message: "Token verified successfully" });
     } catch (error) {
       console.error("Error in verifyEmailToken:", error);
       res
-        .status(500)
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
         .json({ success: false, message: "Error verifying token" });
     }
   },
@@ -127,7 +128,7 @@ const forgotPasswordController = {
 
       if (!user) {
         return res
-          .status(404)
+          .status(HTTP_STATUS.NOT_FOUND)
           .json({ success: false, message: "Invalid or expired token" });
       }
 
@@ -154,12 +155,12 @@ const forgotPasswordController = {
       });
 
       res
-        .status(200)
+        .status(HTTP_STATUS.OK)
         .json({ success: true, message: "Password reset successfully" });
     } catch (error) {
       console.error("Error in resetPassword:", error);
       res
-        .status(500)
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
         .json({ success: false, message: "Error resetting password" });
     }
   },
@@ -171,13 +172,13 @@ const forgotPasswordController = {
       // Fetch user by ID
       const user = await User.findById(userId);
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
       }
 
       // Check if old password matches
       const match = await bcrypt.compare(oldPassword, user.password);
       if (!match) {
-        return res.status(400).json({ message: "Old password is incorrect" });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Old password is incorrect" });
       }
 
       // Hash the new password
@@ -189,7 +190,7 @@ const forgotPasswordController = {
       await user.save();
 
       // Respond with success
-      res.status(200).json({ message: "Password changed successfully" });
+      res.status(HTTP_STATUS.OK).json({ message: "Password changed successfully" });
 
       // Send confirmation email
       try {
@@ -209,7 +210,7 @@ const forgotPasswordController = {
       }
     } catch (error) {
       console.error("Error changing password:", error);
-      res.status(500).json({ message: "Internal Server Error" });
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
     }
   },
   requestPasswordResetFromSignin: async (req, res) => {
@@ -222,7 +223,7 @@ const forgotPasswordController = {
       const user = await User.findOne({ email: lowercaseEmail });
       if (!user) {
         return res
-          .status(404)
+          .status(HTTP_STATUS.NOT_FOUND)
           .json({ success: false, message: "User not found" });
       }
 
@@ -343,14 +344,14 @@ const forgotPasswordController = {
       });
       
 
-      res.status(200).json({
+      res.status(HTTP_STATUS.OK).json({
         success: true,
         message: "A verification email has been sent. Please check your inbox.",
       });
     } catch (error) {
       console.error("Error in requestPasswordResetFromSignup:", error);
       res
-        .status(500)
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
         .json({ success: false, message: "Error sending verification email" });
     }
   },
@@ -367,7 +368,7 @@ const forgotPasswordController = {
 
       if (!user) {
         return res
-          .status(404)
+          .status(HTTP_STATUS.NOT_FOUND)
           .json({ success: false, message: "Invalid or expired token" });
       }
 
@@ -394,12 +395,12 @@ const forgotPasswordController = {
       });
 
       res
-        .status(200)
+        .status(HTTP_STATUS.OK)
         .json({ success: true, message: "Password reset successfully" });
     } catch (error) {
       console.error("Error in resetPasswordFromSignup:", error);
       res
-        .status(500)
+        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
         .json({ success: false, message: "Error resetting password" });
     }
   },

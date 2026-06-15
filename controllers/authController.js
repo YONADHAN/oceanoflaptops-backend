@@ -4,7 +4,8 @@ require("dotenv").config();
 const User = require("../models/userSchema")
 const {generateAccessToken,generateRefreshToken} = require("../utils/JWT/generateTokens")
 const { OAuth2Client } = require('google-auth-library');
-const storeToken = require("../utils/JWT/storeCookies")
+const storeToken = require("../utils/JWT/storeCookies");
+const HTTP_STATUS = require("../utils/constants/httpStatus");
 
 
 
@@ -18,7 +19,7 @@ const refreshAccessToken = async (req, res) => {
 
     if (!refreshToken) {
       console.log("~~~~~Refreshing Failed~~~~~");
-      return res.status(403).json({
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
         message: "Refresh token expired. Login to your account.",
         success: false,
       });
@@ -28,7 +29,7 @@ const refreshAccessToken = async (req, res) => {
     const tokenDoc = await RefreshToken.findOne({ token: refreshToken });
     if (!tokenDoc) {
       console.log("~~~~~Refreshing Failed~~~~~");
-      return res.status(403).json({
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
         message: "Invalid refresh token.",
         success: false,
       });
@@ -49,7 +50,7 @@ const refreshAccessToken = async (req, res) => {
 
     // Ensure the role in the token is valid
     if (!roleSecrets[role]) {
-      return res.status(403).json({
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
         message: "Invalid role in refresh token.",
         success: false,
         role,
@@ -69,7 +70,7 @@ const refreshAccessToken = async (req, res) => {
         sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       });
 
-      return res.status(403).json({
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
         message: "Refresh token expired. Login to your account.",
         success: false,
       });
@@ -94,7 +95,7 @@ const refreshAccessToken = async (req, res) => {
     console.log("New Access Token:", newAccessToken);
     console.log("~~~~~Refreshing Completed~~~~~");
 
-    return res.status(200).json({
+    return res.status(HTTP_STATUS.OK).json({
       message: "Access token created successfully.",
       success: true,
       access_token: newAccessToken,
@@ -102,7 +103,7 @@ const refreshAccessToken = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in Refresh Token:", error.message);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       message: "Something went wrong.",
       success: false,
       error: error.message,
@@ -118,12 +119,12 @@ const googleAuth = async (req, res) => {
 
   if (!token || !role) {
       console.error("Missing token or role in the request");
-      return res.status(400).json({ error: "Token and role are required" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Token and role are required" });
   }
 
   if (!["user", "admin"].includes(role)) {
       console.error("Invalid role specified:", role);
-      return res.status(400).json({ error: "Invalid role specified" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Invalid role specified" });
   }
 
   try {
@@ -141,7 +142,7 @@ const googleAuth = async (req, res) => {
 
       if (!payload.email_verified) {
           console.warn("Unverified email:", payload.email);
-          return res.status(401).json({ message: "Email not verified" });
+          return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Email not verified" });
       }
 
       const { name, email, sub, picture } = payload;
@@ -155,7 +156,7 @@ const googleAuth = async (req, res) => {
 
       if (user && user.isBlocked) {
           console.warn("Blocked user attempted to log in:", email);
-          return res.status(401).json({
+          return res.status(HTTP_STATUS.UNAUTHORIZED).json({
               message: "Your account has been blocked. Please contact the support team.",
           });
       }
@@ -216,7 +217,7 @@ const googleAuth = async (req, res) => {
           
 
         console.log("Returning success response for:", email);
-        return res.status(200).json({
+        return res.status(HTTP_STATUS.OK).json({
             success: true,
             message: `${role.charAt(0).toUpperCase() + role.slice(1)} logged in successfully`,
             userData: userDetails,
@@ -226,10 +227,10 @@ const googleAuth = async (req, res) => {
     }
 
       console.error("Failed to save the refresh token for:", email);
-      res.status(500).json({ message: "Failed to log in" });
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Failed to log in" });
   } catch (error) {
       console.error("Google Auth Error:", error.stack || error);
-      res.status(500).json({
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
           message: "Internal server error. Please try again.",
       });
   }
@@ -242,24 +243,24 @@ const RemoveRefreshToken = async (req, res) => {
   try {
     // Validate user ID
     if (!id) {
-      return res.status(400).json({ success: false, message: "User ID is required" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "User ID is required" });
     }
 
     // Find and remove refresh token
     const refreshToken = await RefreshToken.findOneAndDelete({ user_id: id });
     if (!refreshToken) {
-      return res.status(404).json({ success: false, message: "Refresh token not found" });
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Refresh token not found" });
     }
 
     // Successfully deleted
-    return res.status(200).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "The refresh token was successfully deleted",
     });
   } catch (error) {
     // Log error and send server error response
     console.error("Error deleting refresh token:", error);
-    return res.status(500).json({
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Internal server error",
     });

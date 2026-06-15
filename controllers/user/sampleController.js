@@ -1,4 +1,5 @@
 const Product = require('../../models/productSchema');
+const HTTP_STATUS = require('../../utils/constants/httpStatus');
 
 const filterOptions = async (req, res) => {
   try {
@@ -62,7 +63,7 @@ const filterOptions = async (req, res) => {
 
    
 
-    res.status(200).json({ success: true, message: "Filter is successfully fetched", fieldData: grandMother })
+    res.status(HTTP_STATUS.OK).json({ success: true, message: "Filter is successfully fetched", fieldData: grandMother })
   } catch (error) {
     console.error(error);
   }
@@ -198,7 +199,7 @@ const gettingData = async (req, res) => {
       .limit(limit)
       .lean();
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       success: true,
       products,
       totalCount,
@@ -209,7 +210,7 @@ const gettingData = async (req, res) => {
 
   } catch (error) {
     console.error("Error fetching data:", error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Internal server error"
     });
