@@ -1,5 +1,4 @@
 const User = require("../../models/userSchema");
-const Order = require("../../models/orderSchema");
 const Coupon = require("../../models/couponSchema");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
 const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
@@ -77,12 +76,11 @@ const get_coupons_for_admin = async (req, res) => {
   try {
     const { couponCode, description, discountPercentage, startDate, endDate, minPurchaseAmount, maxDiscountPrice } = req.body.formData;
 
-    // Validate required fields
+
     if (!couponCode || !description || !discountPercentage || !startDate || !endDate) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.REQUIRED_FIELDS_MISSING });
     }
 
-    // Format and validate coupon code
     const formattedCouponCode = couponCode.trim().toUpperCase();
     if (!/^[A-Z0-9]+$/.test(formattedCouponCode)) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.COUPON_CODE_MUST_CONTAIN_ONLY_LETTERS_AND_NUMBERS });
@@ -100,17 +98,17 @@ const get_coupons_for_admin = async (req, res) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.MAXIMUM_DISCOUNT_PRICE_CANNOT_BE_NEGATIVE });
     }
 
-    if (discountPercentage <= 0 || discountPercentage > 100) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.DISCOUNT_PERCENTAGE_MUST_BE_BETWEEN_1_AND });
+    if (discountPercentage <= 0 || discountPercentage > 80) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.DISCOUNT_PERCENTAGE_MUST_BE_BETWEEN_1_AND_80 });
     }
 
-    // Check for existing coupon
+    
     const couponExists = await Coupon.findOne({ couponCode: formattedCouponCode });
     if (couponExists) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.COUPON_CODE_ALREADY_EXISTS });
     }
 
-    // Date handling
+  
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 

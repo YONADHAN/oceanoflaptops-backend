@@ -146,7 +146,7 @@ const ERROR_MESSAGES = Object.freeze({
   DESCRIPTION_CANNOT_BE_EMPTY: "Description cannot be empty.",
   MINIMUM_PURCHASE_AMOUNT_MUST_BE_GREATER_THAN_0: "Minimum purchase amount must be greater than 0.",
   MAXIMUM_DISCOUNT_PRICE_CANNOT_BE_NEGATIVE: "Maximum discount price cannot be negative.",
-  DISCOUNT_PERCENTAGE_MUST_BE_BETWEEN_1_AND_100: "Discount percentage must be between 1 and 100.",
+  DISCOUNT_PERCENTAGE_MUST_BE_BETWEEN_1_AND_80: "Discount percentage must be between 1 and 80.",
   START_DATE_CANNOT_BE_IN_THE_PAST: "Start date cannot be in the past.",
   END_DATE_MUST_BE_GREATER_THAN_THE_START_DATE: "End date must be greater than the start date.",
 
