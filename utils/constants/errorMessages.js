@@ -94,13 +94,30 @@ const ERROR_MESSAGES = Object.freeze({
   PRODUCT_DETAILS_NOT_FOUND: "Product details not found",
   PRODUCT_PRICING_INFORMATION_IS_INCOMPLETE: "Product pricing information is incomplete",
   FAILED_TO_CALCULATE_SALE_PRICE: "Failed to calculate sale price",
-  OFFER_SHOULD_BE_BETWEEN_0_AND_100: "Offer should be between 0 and 100",
-  INVALID_OFFER_VALUE_MUST_BE_BETWEEN_0_AND_100: "Invalid offer value (must be between 0 and 100)",
+  INVALID_OFFER_VALUE_MUST_BE_BETWEEN_0_AND_80: "Invalid offer value (must be between 0 and 80)",
   ERROR_UPDATING_OFFER: "Error updating offer",
   ERROR_FETCHING_PRODUCTS: "Error fetching products",
   AN_ERROR_OCCURRED_WHILE_FETCHING_PRODUCT_QUANTITY: "An error occurred while fetching product quantity.",
   ERROR_RETRIEVING_FILTER_OPTIONS: "Error retrieving filter options",
   ERROR_FILTERING_PRODUCTS: "Error filtering products",
+  PRODUCT_NAME_MUST_BE_AT_LEAST_3_CHARACTERS:
+    "Product name must be at least 3 characters",
+  BRAND_NAME_MUST_BE_AT_LEAST_2_CHARACTERS:
+    "Brand name must be at least 2 characters",
+  MODEL_NUMBER_MUST_BE_AT_LEAST_2_CHARACTERS:
+    "Model number must be at least 2 characters",
+  REGULAR_PRICE_MUST_BE_GREATER_THAN_ZERO:
+    "Regular price must be greater than 0",
+  QUANTITY_CANNOT_BE_NEGATIVE:
+    "Quantity cannot be negative",
+  OFFER_PERCENTAGE_MUST_BE_BETWEEN_0_AND_80:
+    "Offer percentage must be between 0 and 80",
+  MINIMUM_3_PRODUCT_IMAGES_REQUIRED:
+    "Minimum 3 product images are required",
+  PRODUCT_ALREADY_EXISTS:
+    "Product already exists",
+  INVALID_CATEGORY:
+    "Invalid category",
 
   // Cart 
   CART_NOT_FOUND: "Cart not found",
@@ -149,6 +166,12 @@ const ERROR_MESSAGES = Object.freeze({
   DISCOUNT_PERCENTAGE_MUST_BE_BETWEEN_1_AND_80: "Discount percentage must be between 1 and 80.",
   START_DATE_CANNOT_BE_IN_THE_PAST: "Start date cannot be in the past.",
   END_DATE_MUST_BE_GREATER_THAN_THE_START_DATE: "End date must be greater than the start date.",
+  MAXIMUM_DISCOUNT_PRICE_SHOULD_BE_LESS_THAN_MIN_PURCHASE_AMOUNT:"Maximum discount price should be less than min purchase amount.",
+  COUPON_CODE_MUST_BE_WITHIN_4_TO_20_CHARACTERS:"Coupon code must be between 4 and 20 characters",
+
+  
+
+
 
   // Payment 
   PAYMENT_FAILED: "Payment failed",

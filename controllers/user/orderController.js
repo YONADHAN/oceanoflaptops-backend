@@ -83,11 +83,13 @@ const cancel_order = async (req, res) => {
       }
 
      
+      let cancelledProducts = [];
       await Promise.all(order.orderItems.map(async (item) => {
           item.orderStatus = "Cancelled";
           item.cancellationReason = reason;
           const product = await Product.findById(item.product);
           if (product) {
+              cancelledProducts.push(product.productName);
               product.quantity += item.quantity;
               await product.save();
           }
@@ -110,7 +112,7 @@ const cancel_order = async (req, res) => {
         const transactionItem = {
           type: "credit",
           amount: order.payableAmount+order.shippingFee,
-          description: `Amount retrieved from cancelled order ${orderId}`,
+          description: `Refund for cancelled product(s): ${cancelledProducts.join(', ')}`,
           date: new Date(),
         };
       
@@ -213,7 +215,7 @@ const cancel_product = async (req, res) => {
         const transactionItem = {
           type: "credit",
           amount: amountGetAddedToTheWallet,
-          description: `Amount retrieved from cancelled order ${orderId} for the cancelled product ${product.productName}`,
+          description: `Refund for cancelled product: ${product.productName}`,
           date: new Date(),
         };
       

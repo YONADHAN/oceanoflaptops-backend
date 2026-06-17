@@ -13,15 +13,24 @@ const get_wallet_history = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const wallet = await Wallet.findOne({ userId: userId });
-        
+
         if (!wallet) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.WALLET_NOT_FOUND });
         }
 
-        
+
         const sortedTransactions = wallet.transactions
             .sort((a, b) => b.date - a.date)
-            .slice(skip, skip + limit);
+            .slice(skip, skip + limit)
+            .map(t => {
+                const transaction = typeof t.toObject === 'function' ? t.toObject() : { ...t };
+                if (transaction.description) {
+                    transaction.description = transaction.description
+                        .replace(/order [a-zA-Z0-9_-]+ for the cancelled product/gi, 'cancelled product:')
+                        .replace(/order [a-zA-Z0-9_-]+/gi, 'order');
+                }
+                return transaction;
+            });
 
         const walletResponse = {
             ...wallet.toObject(),
@@ -44,24 +53,24 @@ const add_to_wallet = async (req, res) => {
         const userId = req.body.userId;
         const amount = parseFloat(req.body.amount);
         const description = req.body.description;
-        
+
         if (isNaN(amount) || amount <= 0) {
             return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.INVALID_AMOUNT });
         }
 
         let wallet = await Wallet.findOne({ userId: userId });
 
-    
+
         if (!wallet) {
             wallet = new Wallet({ userId, balance: 0 });
         }
 
         wallet.balance += amount;
-        
+
         const transactionItem = {
             type: 'credit',
             amount: amount,
-            description: description||"Added money to wallet",
+            description: description || "Added money to wallet",
             date: Date.now(),
         };
 
@@ -90,7 +99,7 @@ const withdraw_from_wallet = async (req, res) => {
         }
 
         const wallet = await Wallet.findOne({ userId: userId });
-        
+
         if (!wallet) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.WALLET_NOT_FOUND });
         }
@@ -100,7 +109,7 @@ const withdraw_from_wallet = async (req, res) => {
         }
 
         wallet.balance -= amount;
-        
+
         const transactionItem = {
             type: 'debit',
             amount: amount,
@@ -129,11 +138,11 @@ const wallet_balance = async (req, res) => {
         const wallet = await Wallet.findOne({
             userId: userId,
         })
-        
+
         if (!wallet) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.WALLET_NOT_FOUND });
         }
-        
+
         res.status(HTTP_STATUS.OK).json({
             message: SUCCESS_MESSAGES.WALLET_BALANCE_FETCHED,
             balance: wallet.balance
@@ -150,5 +159,5 @@ module.exports = {
     get_wallet_history,
     add_to_wallet,
     withdraw_from_wallet,
-    wallet_balance, 
+    wallet_balance,
 };

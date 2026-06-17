@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const RefreshToken = require("../models/refreshTokenSchema");
 require("dotenv").config();
 const User = require("../models/userSchema")
-const {generateAccessToken,generateRefreshToken} = require("../utils/JWT/generateTokens")
+const { generateAccessToken, generateRefreshToken } = require("../utils/JWT/generateTokens")
 const { OAuth2Client } = require('google-auth-library');
 const storeToken = require("../utils/JWT/storeCookies");
 const HTTP_STATUS = require("../utils/constants/httpStatus");
@@ -16,7 +16,7 @@ const refreshAccessToken = async (req, res) => {
   console.log("~~~~~Refreshing Token~~~~~");
 
   try {
-  
+
 
     const refreshToken = req?.cookies?.RefreshToken;
 
@@ -30,6 +30,10 @@ const refreshAccessToken = async (req, res) => {
 
     // Check if the refresh token exists in the database
     const tokenDoc = await RefreshToken.findOne({ token: refreshToken });
+    console.log("Refresh cookie:", req.cookies.RefreshToken);
+    console.log("Token found in DB:", !!tokenDoc);
+    console.log("Token document:", tokenDoc);
+
     if (!tokenDoc) {
       console.log("~~~~~Refreshing Failed~~~~~");
       return res.status(HTTP_STATUS.FORBIDDEN).json({
@@ -49,7 +53,7 @@ const refreshAccessToken = async (req, res) => {
       },
     };
 
-    const { user: role, expiresAt } = tokenDoc;
+    const { user: role, expires_at } = tokenDoc;
 
     // Ensure the role in the token is valid
     if (!roleSecrets[role]) {
@@ -63,7 +67,7 @@ const refreshAccessToken = async (req, res) => {
     const { refreshSecret, accessSecret } = roleSecrets[role];
 
     // Check if the refresh token has expired
-    if (expiresAt <= new Date()) {
+    if (expires_at <= new Date()) {
       await RefreshToken.deleteOne({ token: refreshToken });
 
 
@@ -117,125 +121,125 @@ const refreshAccessToken = async (req, res) => {
 
 const googleAuth = async (req, res) => {
   const { token, role } = req.body;
-  console.log("At the googleAuth token : ",token," and role is : ",role);
+  console.log("At the googleAuth token : ", token, " and role is : ", role);
   console.log("Received Google Auth request with token and role:", { token, role });
 
   if (!token || !role) {
-      console.error("Missing token or role in the request");
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Token and role are required" });
+    console.error("Missing token or role in the request");
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Token and role are required" });
   }
 
   if (!["user", "admin"].includes(role)) {
-      console.error("Invalid role specified:", role);
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Invalid role specified" });
+    console.error("Invalid role specified:", role);
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "Invalid role specified" });
   }
 
   try {
-      console.log("Initializing Google OAuth2Client...");
-      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    console.log("Initializing Google OAuth2Client...");
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
 
-      console.log("Verifying ID token...");
-      const ticket = await client.verifyIdToken({
-          idToken: token,
-          audience: process.env.GOOGLE_CLIENT_ID,
-      });
+    console.log("Verifying ID token...");
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
-      const payload = ticket.getPayload();
-      console.log("Token payload:", payload);
+    const payload = ticket.getPayload();
+    console.log("Token payload:", payload);
 
-      if (!payload.email_verified) {
-          console.warn("Unverified email:", payload.email);
-          return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: ERROR_MESSAGES.EMAIL_NOT_VERIFIED });
-      }
-
-      const { name, email, sub, picture } = payload;
-      console.log("Verified email:", email);
-
-      console.log("Checking if the email exists in other roles...");
-     
-
-      console.log("Looking up the user in the database...");
-      let user = await User.findOne({ email });
-
-      if (user && user.isBlocked) {
-          console.warn("Blocked user attempted to log in:", email);
-          return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-              message: ERROR_MESSAGES.YOUR_ACCOUNT_HAS_BEEN_BLOCKED_PLEASE_CONTACT_THE_S,
-          });
-      }
-
-      if (!user) {
-          console.log("Creating a new user for:", email);
-          user = new User({
-              username: name,
-              email,
-              googleId: sub,
-              avatar: picture,
-              isVerified: true,
-          });
-      } else if (!user.googleId) {
-          console.log("Updating existing user with Google ID:", email);
-          user.googleId = sub;
-          if (!user.avatar) {
-              user.avatar = picture;
-          }
-      }
-
-      console.log("Saving user data...");
-      await user.save();
-
-      const userDataToGenerateToken = {
-          _id: user._id,
-          email: user.email,
-          role,
-      };
-      await RefreshToken.deleteMany({user_id: user._id})
-      console.log("Generating access and refresh tokens...");
-      const accessToken = generateAccessToken(role, userDataToGenerateToken);
-      const refreshToken = generateRefreshToken(role, userDataToGenerateToken);
-
-      console.log("Saving refresh token to the database...");
-      const newRefreshToken = new RefreshToken({
-          token: refreshToken,
-          user: role,
-          user_id: user._id,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      });
-
-      const savedToken = await newRefreshToken.save();
-      console.log("Refresh token saved:", savedToken);
-
-      const { password, ...userDetails } = user.toObject();
-
-     
-        
-        if (savedToken) {
-          console.log("Storing refresh token in cookies...");
-          storeToken(
-              `RefreshToken`,
-              refreshToken,
-              7 * 24 * 60 * 60 * 1000,
-              res
-          );
-          
-
-        console.log("Returning success response for:", email);
-        return res.status(HTTP_STATUS.OK).json({
-            success: true,
-            message: `${role.charAt(0).toUpperCase() + role.slice(1)} logged in successfully`,
-            userData: userDetails,
-            accessToken,
-            role,
-        });
+    if (!payload.email_verified) {
+      console.warn("Unverified email:", payload.email);
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: ERROR_MESSAGES.EMAIL_NOT_VERIFIED });
     }
 
-      console.error("Failed to save the refresh token for:", email);
-      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Failed to log in" });
-  } catch (error) {
-      console.error("Google Auth Error:", error.stack || error);
-      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-          message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+    const { name, email, sub, picture } = payload;
+    console.log("Verified email:", email);
+
+    console.log("Checking if the email exists in other roles...");
+
+
+    console.log("Looking up the user in the database...");
+    let user = await User.findOne({ email });
+
+    if (user && user.isBlocked) {
+      console.warn("Blocked user attempted to log in:", email);
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        message: ERROR_MESSAGES.YOUR_ACCOUNT_HAS_BEEN_BLOCKED_PLEASE_CONTACT_THE_S,
       });
+    }
+
+    if (!user) {
+      console.log("Creating a new user for:", email);
+      user = new User({
+        username: name,
+        email,
+        googleId: sub,
+        avatar: picture,
+        isVerified: true,
+      });
+    } else if (!user.googleId) {
+      console.log("Updating existing user with Google ID:", email);
+      user.googleId = sub;
+      if (!user.avatar) {
+        user.avatar = picture;
+      }
+    }
+
+    console.log("Saving user data...");
+    await user.save();
+
+    const userDataToGenerateToken = {
+      _id: user._id,
+      email: user.email,
+      role,
+    };
+    await RefreshToken.deleteMany({ user_id: user._id })
+    console.log("Generating access and refresh tokens...");
+    const accessToken = generateAccessToken(role, userDataToGenerateToken);
+    const refreshToken = generateRefreshToken(role, userDataToGenerateToken);
+
+    console.log("Saving refresh token to the database...");
+    const newRefreshToken = new RefreshToken({
+      token: refreshToken,
+      user: role,
+      user_id: user._id,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    const savedToken = await newRefreshToken.save();
+    console.log("Refresh token saved:", savedToken);
+
+    const { password, ...userDetails } = user.toObject();
+
+
+
+    if (savedToken) {
+      console.log("Storing refresh token in cookies...");
+      storeToken(
+        `RefreshToken`,
+        refreshToken,
+        7 * 24 * 60 * 60 * 1000,
+        res
+      );
+
+
+      console.log("Returning success response for:", email);
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        message: `${role.charAt(0).toUpperCase() + role.slice(1)} logged in successfully`,
+        userData: userDetails,
+        accessToken,
+        role,
+      });
+    }
+
+    console.error("Failed to save the refresh token for:", email);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Failed to log in" });
+  } catch (error) {
+    console.error("Google Auth Error:", error.stack || error);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+    });
   }
 };
 
@@ -271,4 +275,4 @@ const RemoveRefreshToken = async (req, res) => {
 };
 
 
-module.exports = { refreshAccessToken ,googleAuth ,RemoveRefreshToken};
+module.exports = { refreshAccessToken, googleAuth, RemoveRefreshToken };

@@ -38,12 +38,13 @@ const verifyToken = (role) => {
 
       const refreshTokenFromDatabase = await RefreshToken.findOne({ user_id: decoded._id });
       if (!refreshTokenFromDatabase) {
-        return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Refresh token not found.", role });
+        console.log("No refresh token found for user:", decoded._id);
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Token is invalid or expired.", role });
       }
 
       
       if (refreshTokenFromDatabase.expires_at < Date.now()) {
-        await RefreshToken.deleteOne({ userId: decoded._id });
+        await RefreshToken.deleteOne({ user_id: decoded._id });
         res.clearCookie(`RefreshToken`);
         res.clearCookie(`access_token`)
         return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Refresh token expired.", role });

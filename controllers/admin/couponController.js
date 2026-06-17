@@ -72,7 +72,7 @@ const get_coupons_for_admin = async (req, res) => {
       error: error.message,
     });
   }
-};const create_coupon = async (req, res) => {
+}; const create_coupon = async (req, res) => {
   try {
     const { couponCode, description, discountPercentage, startDate, endDate, minPurchaseAmount, maxDiscountPrice } = req.body.formData;
 
@@ -81,9 +81,16 @@ const get_coupons_for_admin = async (req, res) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.REQUIRED_FIELDS_MISSING });
     }
 
+
     const formattedCouponCode = couponCode.trim().toUpperCase();
     if (!/^[A-Z0-9]+$/.test(formattedCouponCode)) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.COUPON_CODE_MUST_CONTAIN_ONLY_LETTERS_AND_NUMBERS });
+    }
+
+    if (couponCode.trim().length < 4 || couponCode.trim().length > 20) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        message: ERROR_MESSAGES.COUPON_CODE_MUST_BE_WITHIN_4_TO_20_CHARACTERS
+      });
     }
 
     if (!description.trim()) {
@@ -98,17 +105,20 @@ const get_coupons_for_admin = async (req, res) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.MAXIMUM_DISCOUNT_PRICE_CANNOT_BE_NEGATIVE });
     }
 
+    if (maxDiscountPrice >= minPurchaseAmount) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.MAXIMUM_DISCOUNT_PRICE_SHOULD_BE_LESS_THAN_MIN_PURCHASE_AMOUNT })
+    }
+
     if (discountPercentage <= 0 || discountPercentage > 80) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.DISCOUNT_PERCENTAGE_MUST_BE_BETWEEN_1_AND_80 });
     }
 
-    
+
     const couponExists = await Coupon.findOne({ couponCode: formattedCouponCode });
     if (couponExists) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.COUPON_CODE_ALREADY_EXISTS });
     }
 
-  
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
@@ -123,7 +133,7 @@ const get_coupons_for_admin = async (req, res) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.END_DATE_MUST_BE_GREATER_THAN_THE_START_DATE });
     }
 
-  
+
     const coupon = new Coupon({
       couponCode: formattedCouponCode,
       description: description.trim(),
@@ -152,8 +162,8 @@ const delete_coupon = async (req, res) => {
     if (!couponCode) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: ERROR_MESSAGES.NO_COUPON_SELECTED_TO_DELETE });
     }
-    const coupon = await Coupon.deleteOne({couponCode: couponCode})
-  
+    const coupon = await Coupon.deleteOne({ couponCode: couponCode })
+
     if (!coupon) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.COUPON_NOT_FOUND_TO_DELETE });
     }
@@ -165,18 +175,18 @@ const delete_coupon = async (req, res) => {
 
 const update_coupon = async (req, res) => {
   try {
-    const formData =  req.body.formData
+    const formData = req.body.formData
     const selectedCouponId = formData.couponCode
-    if (!selectedCouponId ) {
+    if (!selectedCouponId) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
         .json({
           message: SUCCESS_MESSAGES.NO_COUPON_SELECTED,
         });
     }
-   
-    const coupon = await Coupon.findOne({couponCode: formData.couponCode});
-   
+
+    const coupon = await Coupon.findOne({ couponCode: formData.couponCode });
+
     if (!coupon) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ message: ERROR_MESSAGES.COUPON_NOT_FOUND_TO_UPDATE });
     }
