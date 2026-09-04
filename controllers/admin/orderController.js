@@ -7,7 +7,7 @@ const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
 
 
 const get_orders = async (req, res) => {
-  const { page = 1, limit = 10, searchQuery  } = req.query;
+  const { page = 1, limit = 10, searchQuery } = req.query;
   try {
     const skip = (page - 1) * limit;
 
@@ -16,21 +16,21 @@ const get_orders = async (req, res) => {
 
     if (searchQuery && searchQuery.trim()) {
       const searchRegex = new RegExp(searchQuery.trim(), 'i');
-      
+
       query = query.or([
-        { orderId: searchRegex },       
+        { orderId: searchRegex },
         { orderStatus: searchRegex },
-      
+
       ]);
     }
-  
-    
+
+
     const orders = await query
       .skip(skip)
       .limit(Number(limit))
       .populate("user")
-      .sort({placedAt: -1})
-   
+      .sort({ placedAt: -1 })
+
     const totalOrders = await Order.countDocuments(query.getQuery());
 
     res.status(HTTP_STATUS.OK).json({
@@ -52,89 +52,24 @@ const get_orders = async (req, res) => {
   }
 };
 
-const  order_details_for_salesReport = async (req, res) => {
- 
-  const { searchQuery = "", startDate, endDate, filterPeriod} = req.body;
+const order_details_for_salesReport = async (req, res) => {
+
+  const { searchQuery = "", startDate, endDate, filterPeriod } = req.body;
   //console.log("searchQuery", searchQuery, " startDate", startDate, " endDate", endDate, " filteredPeriod", filterPeriod)
   try {
     let query = {};
 
-    if(searchQuery) {
-      query.$or = [
-        {orderId: {$regex: searchQuery, $options: "i"}},
-        {"shippingAddress.name": {$regex: searchQuery, $options: "i"}},
-        {"shippingAddress.email": {$regex: searchQuery, $options: "i"}},
-        {"shippingAddress.phone": {$regex: searchQuery, $options: "i"}}
-      ];
-    }
-  
-   
-   
-    if (startDate && endDate) {
-      query.placedAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }else if (filterPeriod) {
-      const now = new Date();
-      const startOfPeriod = new Date();
-
-      switch (filterPeriod) {
-        case "thisDay": 
-          startOfPeriod.setHours(0, 0, 0, 0);
-          break;
-        case "thisWeek": 
-          startOfPeriod.setDate(now.getDate() - now.getDay());
-          break;
-        case "thisMonth":
-          startOfPeriod.setDate(1);
-          break;
-        case "thisYear": 
-          startOfPeriod.setMonth(0, 1);
-          break;
-      }
-
-      query.placedAt = {
-        $gte: startOfPeriod,
-        $lte: now
-      };
-    }
-
-    //console.log("query is " + query)
-
-    const orders = await Order.find(query).sort({placedAt: 1})
-
-
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      orders,
-    });
-    
-  } catch (error) {
-     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR, error: error});
-  }
-}
-
-
-
-const order_for_salesReport = async (req, res) => {
-  const { page = 1, limit = 10, searchQuery = "", startDate, endDate, filterPeriod } = req.body;
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-
-  try {
-   
-    let query = {};
-
-    
     if (searchQuery) {
       query.$or = [
         { orderId: { $regex: searchQuery, $options: "i" } },
         { "shippingAddress.name": { $regex: searchQuery, $options: "i" } },
-        { "shippingAddress.email": { $regex: searchQuery, $options: "i" } }
+        { "shippingAddress.email": { $regex: searchQuery, $options: "i" } },
+        { "shippingAddress.phone": { $regex: searchQuery, $options: "i" } }
       ];
     }
-   
-   
+
+
+
     if (startDate && endDate) {
       query.placedAt = {
         $gte: new Date(startDate),
@@ -165,7 +100,72 @@ const order_for_salesReport = async (req, res) => {
       };
     }
 
-  
+    //console.log("query is " + query)
+
+    const orders = await Order.find(query).sort({ placedAt: 1 })
+
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      orders,
+    });
+
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR, error: error });
+  }
+}
+
+
+
+const order_for_salesReport = async (req, res) => {
+  const { page = 1, limit = 10, searchQuery = "", startDate, endDate, filterPeriod } = req.body;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+
+  try {
+
+    let query = {};
+
+
+    if (searchQuery) {
+      query.$or = [
+        { orderId: { $regex: searchQuery, $options: "i" } },
+        { "shippingAddress.name": { $regex: searchQuery, $options: "i" } },
+        { "shippingAddress.email": { $regex: searchQuery, $options: "i" } }
+      ];
+    }
+
+
+    if (startDate && endDate) {
+      query.placedAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    } else if (filterPeriod) {
+      const now = new Date();
+      const startOfPeriod = new Date();
+
+      switch (filterPeriod) {
+        case "thisDay":
+          startOfPeriod.setHours(0, 0, 0, 0);
+          break;
+        case "thisWeek":
+          startOfPeriod.setDate(now.getDate() - now.getDay());
+          break;
+        case "thisMonth":
+          startOfPeriod.setDate(1);
+          break;
+        case "thisYear":
+          startOfPeriod.setMonth(0, 1);
+          break;
+      }
+
+      query.placedAt = {
+        $gte: startOfPeriod,
+        $lte: now
+      };
+    }
+
+
     const orders = await Order.find(query)
       .sort({ placedAt: -1 })
       .skip(skip)
@@ -225,12 +225,12 @@ const order_for_salesReport = async (req, res) => {
 };
 
 const order_details = async (req, res) => {
- 
+
   const { id } = req.params;
- 
+
 
   try {
-    const order = await Order.findOne({orderId: id});
+    const order = await Order.findOne({ orderId: id });
     if (!order) {
       return res
         .status(HTTP_STATUS.NOT_FOUND)
@@ -248,21 +248,21 @@ const order_status = async function (req, res) {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
-    
+
     const order = await Order.findOne({ orderId });
-    
+
     if (!order) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ 
-        success: false, 
-        message: ERROR_MESSAGES.ORDER_NOT_FOUND 
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        message: ERROR_MESSAGES.ORDER_NOT_FOUND
       });
     }
 
- 
+
     if (order.orderStatus === "Cancelled") {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ 
-        success: false, 
-        message: ERROR_MESSAGES.CANNOT_UPDATE_STATUS_ORDER_IS_ALREADY_CANCELLED 
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: ERROR_MESSAGES.CANNOT_UPDATE_STATUS_ORDER_IS_ALREADY_CANCELLED
       });
     }
 
@@ -274,7 +274,7 @@ const order_status = async function (req, res) {
       });
     }
 
- 
+
     order.orderItems = order.orderItems.map(item => {
       if (item.orderStatus !== "Cancelled") {
         return { ...item, orderStatus: status };
@@ -282,28 +282,28 @@ const order_status = async function (req, res) {
       return item;
     });
 
-    
+
     order.orderStatus = status;
 
     if (order && order.orderStatus) {
       if (order.orderStatus === "Cancelled" && order.paymentMethod === "Cash on Delivery") {
         order.paymentStatus = "Cancelled";
-      } else if (order.orderStatus === "Delivered" && order.paymentMethod ==="Cash on Delivery") {
+      } else if (order.orderStatus === "Delivered" && order.paymentMethod === "Cash on Delivery") {
         order.paymentStatus = "Completed";
       }
     }
     await order.save();
 
-    res.status(HTTP_STATUS.OK).json({ 
-      success: true, 
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
       message: `Order status updated to ${status} successfully`,
       order: order
     });
 
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ 
-      success: false, 
-      message: error.message || "Failed to update order status" 
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message || "Failed to update order status"
     });
   }
 }
@@ -316,7 +316,7 @@ const order_status = async function (req, res) {
 //       decision,
 //       reason      
 //     } = req.body;
-   
+
 
 
 //     const order = await Order.findOne({ orderId});
@@ -369,7 +369,7 @@ const order_status = async function (req, res) {
 
 
 //     res.status(200).json({success: true, message: SUCCESS_MESSAGES.RETURN_REQUEST_PROCESSED});
-    
+
 
 //     console.log("return request id is " , JSON.stringify(req.body));
 //   } catch (error) {
@@ -414,7 +414,7 @@ const return_request_management = async (req, res) => {
       const transactionItem = {
         type: "credit",
         amount: amount + order.shippingFee,
-        description: `Refund for ${item.productName}`,
+        description: `Refund for ${item.productName} (x${item.quantity})`,
         date: Date.now(),
       };
 
