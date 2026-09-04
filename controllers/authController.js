@@ -275,4 +275,33 @@ const RemoveRefreshToken = async (req, res) => {
 };
 
 
-module.exports = { refreshAccessToken, googleAuth, RemoveRefreshToken };
+
+const getMe = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('-password -otp -otpExpiresAt -resetPasswordToken -resetPasswordExpires');
+
+    if (!user) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.USER_NOT_FOUND });
+    }
+
+    if (user.isBlocked) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: "User is blocked." });
+    }
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      userData: user,
+      role: req.user.role || (user.isAdmin ? 'admin' : 'user')
+    });
+  } catch (error) {
+    console.error("Error in getMe:", error);
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR
+    });
+  }
+};
+
+module.exports = { refreshAccessToken, googleAuth, RemoveRefreshToken, getMe };
