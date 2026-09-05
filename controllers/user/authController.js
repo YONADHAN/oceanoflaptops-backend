@@ -69,7 +69,7 @@ const userSignup = async (req, res) => {
     if (findUser) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ message: SUCCESS_MESSAGES.USER_ALREADY_EXISTS });
+        .json({ message: ERROR_MESSAGES.USER_ALREADY_EXISTS });
     }
 
     const otp = generateOtp();
@@ -87,7 +87,7 @@ const userSignup = async (req, res) => {
       existUnverifiedUser.otp = otp;
       existUnverifiedUser.otpExpiresAt = otpExpiresAt;
       await existUnverifiedUser.save();
-      return res.status(HTTP_STATUS.OK).json({success: true, message: SUCCESS_MESSAGES.OTP_SENT_VERIFY_WITHIN_2_MINUTES})
+      return res.status(HTTP_STATUS.OK).json({success: true, message: SUCCESS_MESSAGES.OTP_SUCCESSFULLY_SENT_VERIFY_WITHIN_2_MINUTES})
     }
 
     const newUser = new UnverifiedUser({
@@ -104,7 +104,7 @@ const userSignup = async (req, res) => {
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: SUCCESS_MESSAGES.OTP_SENT_VERIFY_WITHIN_2_MINUTES,
+      message: SUCCESS_MESSAGES.OTP_SUCCESSFULLY_SENT_VERIFY_WITHIN_2_MINUTES,
     });
   } catch (error) {
     console.log(error.message);
