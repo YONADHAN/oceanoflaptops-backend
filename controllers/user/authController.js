@@ -6,9 +6,7 @@ const nodemailer = require("nodemailer");
 const bcryptjs = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
 const RefreshToken = require("../../models/refreshTokenSchema");
-const { storeToken, storeCsrfToken } = require("../../utils/JWT/storeCookies");
-const crypto = require("crypto");
-
+const { storeToken } = require("../../utils/JWT/storeCookies");
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -310,9 +308,6 @@ const user_signin = async (req, res) => {
         15 * 60 * 1000, // 15 minutes
         res
       );
-      
-      const csrfToken = crypto.randomBytes(32).toString('hex');
-      storeCsrfToken("csrf_token", csrfToken, 7 * 24 * 60 * 60 * 1000, res);
 
       // console.log("RefreshRoken is , : ", savedToken);
 

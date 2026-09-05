@@ -37,9 +37,7 @@ app.use(
 )
 
 const cookieParser = require('cookie-parser')
-const { verifyCsrfToken } = require('./middlewares/csrf')
 app.use(cookieParser())
-app.use(verifyCsrfToken)
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))

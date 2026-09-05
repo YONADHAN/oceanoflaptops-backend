@@ -6,13 +6,4 @@ const storeToken = (token_name, token, max_age, res) => {
     maxAge: max_age
   });
 };
-const storeCsrfToken = (token_name, token, max_age, res) => {
-  res.cookie(token_name, token, {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    maxAge: max_age
-  });
-};
-
-module.exports = { storeToken, storeCsrfToken };
+module.exports = { storeToken };

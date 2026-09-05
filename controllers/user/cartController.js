@@ -619,7 +619,7 @@ const processCheckout = async (req, res) => {
       const transactionItem = {
         type: "debit",
         amount: totalAmount+shippingFee,
-        description: "Withdrawn from wallet",
+        description: `Withdrawn for: ${orderItems.map(item => `${item.productName} (x${item.quantity})`).join(', ')}`,
         date: Date.now(),
       };
 
