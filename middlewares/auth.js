@@ -12,16 +12,13 @@ const SECRET_KEY = {
 const verifyToken = (role) => {
   return async (req, res, next) => {
     try {
-      const authHeader = req.headers["authorization"];
+      // Extract the access token from HttpOnly cookies instead of Authorization header
+      const token = req.cookies.access_token;
     
-      if (!authHeader) {       
+      if (!token || token.split(".").length !== 3) {       
         return res.status(HTTP_STATUS.FORBIDDEN).json({ message: "No token provided.", role });
       }
 
-      const token = authHeader.split(" ")[1];
-      if (!token || token.split(".").length !== 3) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid token format." });
-      }
       // console.log(role)
       const secretKey = SECRET_KEY[role];
       if (!secretKey) {

@@ -4,7 +4,8 @@ require("dotenv").config();
 const User = require("../models/userSchema")
 const { generateAccessToken, generateRefreshToken } = require("../utils/JWT/generateTokens")
 const { OAuth2Client } = require('google-auth-library');
-const storeToken = require("../utils/JWT/storeCookies");
+const { storeToken, storeCsrfToken } = require("../utils/JWT/storeCookies");
+const crypto = require("crypto");
 const HTTP_STATUS = require("../utils/constants/httpStatus");
 const SUCCESS_MESSAGES = require("../utils/constants/successMessages");
 const ERROR_MESSAGES = require("../utils/constants/errorMessages");
@@ -102,10 +103,19 @@ const refreshAccessToken = async (req, res) => {
     console.log("New Access Token:", newAccessToken);
     console.log("~~~~~Refreshing Completed~~~~~");
 
+    storeToken(
+      "access_token",
+      newAccessToken,
+      15 * 60 * 1000, // 15 minutes
+      res
+    );
+    
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+    storeCsrfToken("csrf_token", csrfToken, 7 * 24 * 60 * 60 * 1000, res);
+
     return res.status(HTTP_STATUS.OK).json({
       message: SUCCESS_MESSAGES.ACCESS_TOKEN_CREATED,
       success: true,
-      access_token: newAccessToken,
       role,
     });
   } catch (error) {
@@ -222,13 +232,22 @@ const googleAuth = async (req, res) => {
         res
       );
 
+      // Store the access token as an HttpOnly cookie
+      storeToken(
+        "access_token",
+        accessToken,
+        15 * 60 * 1000, // 15 minutes
+        res
+      );
+
+      const csrfToken = crypto.randomBytes(32).toString('hex');
+      storeCsrfToken("csrf_token", csrfToken, 7 * 24 * 60 * 60 * 1000, res);
 
       console.log("Returning success response for:", email);
       return res.status(HTTP_STATUS.OK).json({
         success: true,
         message: `${role.charAt(0).toUpperCase() + role.slice(1)} logged in successfully`,
         userData: userDetails,
-        accessToken,
         role,
       });
     }
@@ -260,6 +279,22 @@ const RemoveRefreshToken = async (req, res) => {
     }
 
     // Successfully deleted
+    res.clearCookie('access_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+    res.clearCookie('RefreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+    res.clearCookie('csrf_token', {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+
     return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: SUCCESS_MESSAGES.THE_REFRESH_TOKEN_WAS_DELETED,

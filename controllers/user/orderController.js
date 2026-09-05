@@ -10,7 +10,7 @@ const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
 
 const order_history = async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    const token = req.cookies.access_token;
 
     if (!token) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, message: ERROR_MESSAGES.UNAUTHORIZED });

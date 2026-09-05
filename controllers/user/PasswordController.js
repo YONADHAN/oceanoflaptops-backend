@@ -20,7 +20,8 @@ const forgotPasswordController = {
   // Step 1: Request password reset
   requestPasswordReset: async (req, res) => {
     try {
-      const { userId, email } = req.body;
+      const { email } = req.body;
+      const userId = req.user._id;
 
       // Find user by ID
       const user = await User.findById(userId);
@@ -169,7 +170,8 @@ const forgotPasswordController = {
   },
 
   passwordChange: async (req, res) => {
-    const { userId, oldPassword, newPassword } = req.body;
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user._id;
 
     try {
       // Fetch user by ID
