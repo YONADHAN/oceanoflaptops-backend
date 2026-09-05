@@ -6,8 +6,7 @@ const nodemailer = require("nodemailer");
 const bcryptjs = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
 const RefreshToken = require("../../models/refreshTokenSchema");
-const storeToken = require("../../utils/JWT/storeCookies");
-
+const { storeToken } = require("../../utils/JWT/storeCookies");
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -70,7 +69,7 @@ const userSignup = async (req, res) => {
     if (findUser) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ message: SUCCESS_MESSAGES.USER_ALREADY_EXISTS });
+        .json({ message: ERROR_MESSAGES.USER_ALREADY_EXISTS });
     }
 
     const otp = generateOtp();
@@ -88,7 +87,7 @@ const userSignup = async (req, res) => {
       existUnverifiedUser.otp = otp;
       existUnverifiedUser.otpExpiresAt = otpExpiresAt;
       await existUnverifiedUser.save();
-      return res.status(HTTP_STATUS.OK).json({success: true, message: SUCCESS_MESSAGES.OTP_SENT_VERIFY_WITHIN_2_MINUTES})
+      return res.status(HTTP_STATUS.OK).json({success: true, message: SUCCESS_MESSAGES.OTP_SUCCESSFULLY_SENT_VERIFY_WITHIN_2_MINUTES})
     }
 
     const newUser = new UnverifiedUser({
@@ -105,7 +104,7 @@ const userSignup = async (req, res) => {
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      message: SUCCESS_MESSAGES.OTP_SENT_VERIFY_WITHIN_2_MINUTES,
+      message: SUCCESS_MESSAGES.OTP_SUCCESSFULLY_SENT_VERIFY_WITHIN_2_MINUTES,
     });
   } catch (error) {
     console.log(error.message);
@@ -301,6 +300,15 @@ const user_signin = async (req, res) => {
         7 * 24 * 60 * 60 * 1000,
         res
       );
+      
+      // Store the access token as an HttpOnly cookie
+      storeToken(
+        "access_token",
+        accessToken,
+        15 * 60 * 1000, // 15 minutes
+        res
+      );
+
       // console.log("RefreshRoken is , : ", savedToken);
 
    
@@ -308,7 +316,6 @@ const user_signin = async (req, res) => {
         message: SUCCESS_MESSAGES.LOGIN_SUCCESS,
         userData: userDetails,
         success: true,
-        accessToken,
         role: "user",
       });
     }

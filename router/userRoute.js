@@ -54,10 +54,10 @@ router.put("/addresses/:id/default", verifyUser, authController.setDefaultAddres
 router.post('/update_personal',authController.update_personal)
 
 //forgot password routes
-router.post('/request-password-reset', PasswordController.requestPasswordReset);
+router.post('/request-password-reset', verifyUser, PasswordController.requestPasswordReset);
 router.post('/verify-email', PasswordController.verifyEmailToken);
 router.post('/reset-password', PasswordController.resetPassword);
-router.post('/password-change', PasswordController.passwordChange);
+router.post('/password-change', verifyUser, PasswordController.passwordChange);
 
 
 //cart
@@ -69,7 +69,7 @@ router.post("/get_cart_items",verifyUser, CartController.get_cart_items);
 router.post("/add_to_cart", verifyUser, CartController.add_to_cart);
 router.post("/remove_from_cart", verifyUser, CartController.remove_from_cart);
 router.post('/checkout',verifyUser, CartController.processCheckout);
-router.get('/clear_cart',verifyUser, CartController.clear_cart);
+router.post('/clear_cart',verifyUser, CartController.clear_cart);
 router.post('/refresh_cart',verifyUser, CartController.refresh_cart);
 
 

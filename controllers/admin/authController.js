@@ -1,6 +1,6 @@
 const User = require('../../models/userSchema');
 const RefreshToken = require("../../models/refreshTokenSchema");
-const storeToken = require("../../utils/JWT/storeCookies")
+const { storeToken } = require("../../utils/JWT/storeCookies");
 const bcryptjs = require('bcryptjs');
 const dotenv = require("dotenv")
 const crypto = require('crypto');
@@ -91,11 +91,18 @@ const admin_signin = async (req,res) => {
             res
           );
 
+          // Store the access token as an HttpOnly cookie
+          storeToken(
+            "access_token",
+            accessToken,
+            15 * 60 * 1000, // 15 minutes
+            res
+          );
+
           res.status(HTTP_STATUS.OK).json({
             message: SUCCESS_MESSAGES.LOGIN_SUCCESS,
             adminData: adminDetails,
             success: true,
-            accessToken,
             role:"admin",
           });
         }

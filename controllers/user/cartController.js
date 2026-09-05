@@ -126,7 +126,7 @@ const cartQuantityCheck = async (userId) => {
 
 const refresh_cart = async (req, res) => {
   try {
-    const userId = req.body.userId;
+    const userId = req.user._id;
     const blockedResult = await checkingBlockedProduct(userId);
     await globalFieldUpdation(userId);
     res.json({
@@ -143,17 +143,7 @@ const refresh_cart = async (req, res) => {
 const add_to_cart = async (req, res) => {
   try {
     const { productId, quantity = 1 } = req.body;
-    const token = req.headers.authorization.split(" ")[1];
-    let decoded;
-    try {
-      decoded = jwtDecode(token);
-    } catch (error) {
-      return res
-        .status(HTTP_STATUS.UNAUTHORIZED)
-        .json({ success: false, message: ERROR_MESSAGES.INVALID_TOKEN });
-    }
-
-    const userId = decoded._id;
+    const userId = req.user._id;
 
     const product = await Product.findById(productId).populate("category");
     if (!product) {
@@ -326,7 +316,7 @@ const add_to_cart = async (req, res) => {
 const cart_data = async (req, res) => {
   try {
     //console.log("cart_data endpoint called");
-    const userId = req.body.userId;
+    const userId = req.user._id;
     if (!userId) {
       return res
         .status(HTTP_STATUS.BAD_REQUEST)
@@ -349,7 +339,7 @@ const cart_data = async (req, res) => {
 
 const get_cart = async (req, res) => {
   try {
-    const userId = req.body.userId;
+    const userId = req.user._id;
 
     // Input validation
     if (!userId) {
@@ -447,7 +437,7 @@ const get_cart = async (req, res) => {
 
 const get_cart_items = async (req, res) => {
   try {
-    const userId = req.body.userId;
+    const userId = req.user._id;
 
     // Best practice: Add input validation
     if (!userId) {
@@ -534,7 +524,8 @@ const get_cart_items = async (req, res) => {
 
 const remove_from_cart = async (req, res) => {
   try {
-    const { userId, productId } = req.body;
+    const { productId } = req.body;
+    const userId = req.user._id;
 
     const cart = await Cart.findOne({ userId });
     if (!cart) {
@@ -571,7 +562,6 @@ const remove_from_cart = async (req, res) => {
 const processCheckout = async (req, res) => {
   try {
     const {
-      user,
       orderItems,
       orderedAmount,
       totalAmount,
@@ -588,13 +578,7 @@ const processCheckout = async (req, res) => {
     // console.log("Payment method is : ", paymentMethod);
     // console.log("payment status is : ", paymentStatus);
     // console.log("Razor pay payment id is : ", razorpayPaymentId);
-    const token =
-      req.headers.authorization?.split(" ")[1] || req.cookies.user_access_token;
-    if (!token) {
-      return res
-        .status(HTTP_STATUS.UNAUTHORIZED)
-        .json({ success: false, message: SUCCESS_MESSAGES.NO_TOKEN_PROVIDED });
-    }
+    const user = req.user._id;
 
     // Validate order items and calculate prices
     if (!orderItems?.length) {
@@ -635,7 +619,7 @@ const processCheckout = async (req, res) => {
       const transactionItem = {
         type: "debit",
         amount: totalAmount+shippingFee,
-        description: "Withdrawn from wallet",
+        description: `Withdrawn for: ${orderItems.map(item => `${item.productName} (x${item.quantity})`).join(', ')}`,
         date: Date.now(),
       };
 
@@ -774,10 +758,7 @@ const processCheckout = async (req, res) => {
 const clear_cart = async (req, res) => {
   // console.log("clear cart is working....");
   try {
-    const token =
-      req.headers.authorization?.split(" ")[1] || req.cookies.user_access_token;
-    const decoded = jwtDecode(token);
-    const user = decoded._id;
+    const user = req.user._id;
     //console.log("user is now", user);
     const result = await Cart.findOneAndDelete({ userId: user });
     if (result) {

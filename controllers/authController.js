@@ -4,7 +4,7 @@ require("dotenv").config();
 const User = require("../models/userSchema")
 const { generateAccessToken, generateRefreshToken } = require("../utils/JWT/generateTokens")
 const { OAuth2Client } = require('google-auth-library');
-const storeToken = require("../utils/JWT/storeCookies");
+const { storeToken } = require("../utils/JWT/storeCookies");
 const HTTP_STATUS = require("../utils/constants/httpStatus");
 const SUCCESS_MESSAGES = require("../utils/constants/successMessages");
 const ERROR_MESSAGES = require("../utils/constants/errorMessages");
@@ -13,15 +13,10 @@ const ERROR_MESSAGES = require("../utils/constants/errorMessages");
 
 
 const refreshAccessToken = async (req, res) => {
-  console.log("~~~~~Refreshing Token~~~~~");
-
   try {
-
-
     const refreshToken = req?.cookies?.RefreshToken;
 
     if (!refreshToken) {
-      console.log("~~~~~Refreshing Failed~~~~~");
       return res.status(HTTP_STATUS.FORBIDDEN).json({
         message: SUCCESS_MESSAGES.REFRESH_TOKEN_EXPIRED_LOGIN_TO_YOUR_ACCOUNT,
         success: false,
@@ -30,12 +25,8 @@ const refreshAccessToken = async (req, res) => {
 
     // Check if the refresh token exists in the database
     const tokenDoc = await RefreshToken.findOne({ token: refreshToken });
-    console.log("Refresh cookie:", req.cookies.RefreshToken);
-    console.log("Token found in DB:", !!tokenDoc);
-    console.log("Token document:", tokenDoc);
 
     if (!tokenDoc) {
-      console.log("~~~~~Refreshing Failed~~~~~");
       return res.status(HTTP_STATUS.FORBIDDEN).json({
         message: ERROR_MESSAGES.INVALID_REFRESH_TOKEN,
         success: false,
@@ -74,7 +65,7 @@ const refreshAccessToken = async (req, res) => {
       res.clearCookie(`RefreshToken`, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
 
       return res.status(HTTP_STATUS.FORBIDDEN).json({
@@ -86,9 +77,6 @@ const refreshAccessToken = async (req, res) => {
     // Verify the refresh token
     const decoded = jwt.verify(refreshToken, refreshSecret);
 
-    console.log("Access Token Expiration:", process.env.JWT_ACCESS_TOKEN_EXPIRES);
-
-    // Generate a new access token
     const newAccessToken = jwt.sign(
       {
         _id: decoded?.data?._id,
@@ -99,17 +87,38 @@ const refreshAccessToken = async (req, res) => {
       { expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES }
     );
 
-    console.log("New Access Token:", newAccessToken);
-    console.log("~~~~~Refreshing Completed~~~~~");
+    storeToken(
+      "access_token",
+      newAccessToken,
+      15 * 60 * 1000, // 15 minutes
+      res
+    );
 
     return res.status(HTTP_STATUS.OK).json({
       message: SUCCESS_MESSAGES.ACCESS_TOKEN_CREATED,
       success: true,
-      access_token: newAccessToken,
       role,
     });
   } catch (error) {
     console.error("Error in Refresh Token:", error.message);
+
+    if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
+      res.clearCookie('RefreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
+      res.clearCookie('access_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        message: SUCCESS_MESSAGES.REFRESH_TOKEN_EXPIRED_LOGIN_TO_YOUR_ACCOUNT,
+        success: false,
+      });
+    }
+
     return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       message: ERROR_MESSAGES.SOMETHING_WENT_WRONG,
       success: false,
@@ -121,8 +130,6 @@ const refreshAccessToken = async (req, res) => {
 
 const googleAuth = async (req, res) => {
   const { token, role } = req.body;
-  console.log("At the googleAuth token : ", token, " and role is : ", role);
-  console.log("Received Google Auth request with token and role:", { token, role });
 
   if (!token || !role) {
     console.error("Missing token or role in the request");
@@ -135,17 +142,14 @@ const googleAuth = async (req, res) => {
   }
 
   try {
-    console.log("Initializing Google OAuth2Client...");
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
 
-    console.log("Verifying ID token...");
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
-    console.log("Token payload:", payload);
 
     if (!payload.email_verified) {
       console.warn("Unverified email:", payload.email);
@@ -153,12 +157,7 @@ const googleAuth = async (req, res) => {
     }
 
     const { name, email, sub, picture } = payload;
-    console.log("Verified email:", email);
 
-    console.log("Checking if the email exists in other roles...");
-
-
-    console.log("Looking up the user in the database...");
     let user = await User.findOne({ email });
 
     if (user && user.isBlocked) {
@@ -169,7 +168,6 @@ const googleAuth = async (req, res) => {
     }
 
     if (!user) {
-      console.log("Creating a new user for:", email);
       user = new User({
         username: name,
         email,
@@ -178,14 +176,12 @@ const googleAuth = async (req, res) => {
         isVerified: true,
       });
     } else if (!user.googleId) {
-      console.log("Updating existing user with Google ID:", email);
       user.googleId = sub;
       if (!user.avatar) {
         user.avatar = picture;
       }
     }
 
-    console.log("Saving user data...");
     await user.save();
 
     const userDataToGenerateToken = {
@@ -194,11 +190,9 @@ const googleAuth = async (req, res) => {
       role,
     };
     await RefreshToken.deleteMany({ user_id: user._id })
-    console.log("Generating access and refresh tokens...");
     const accessToken = generateAccessToken(role, userDataToGenerateToken);
     const refreshToken = generateRefreshToken(role, userDataToGenerateToken);
 
-    console.log("Saving refresh token to the database...");
     const newRefreshToken = new RefreshToken({
       token: refreshToken,
       user: role,
@@ -207,14 +201,12 @@ const googleAuth = async (req, res) => {
     });
 
     const savedToken = await newRefreshToken.save();
-    console.log("Refresh token saved:", savedToken);
 
     const { password, ...userDetails } = user.toObject();
 
 
 
     if (savedToken) {
-      console.log("Storing refresh token in cookies...");
       storeToken(
         `RefreshToken`,
         refreshToken,
@@ -222,13 +214,18 @@ const googleAuth = async (req, res) => {
         res
       );
 
+      // Store the access token as an HttpOnly cookie
+      storeToken(
+        "access_token",
+        accessToken,
+        15 * 60 * 1000, // 15 minutes
+        res
+      );
 
-      console.log("Returning success response for:", email);
       return res.status(HTTP_STATUS.OK).json({
         success: true,
         message: `${role.charAt(0).toUpperCase() + role.slice(1)} logged in successfully`,
         userData: userDetails,
-        accessToken,
         role,
       });
     }
@@ -245,7 +242,6 @@ const googleAuth = async (req, res) => {
 
 const RemoveRefreshToken = async (req, res) => {
   const id = req.params.id;
-  console.log("Decoded ID:", id);
 
   try {
     // Validate user ID
@@ -260,6 +256,17 @@ const RemoveRefreshToken = async (req, res) => {
     }
 
     // Successfully deleted
+    res.clearCookie('access_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+    res.clearCookie('RefreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+
     return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: SUCCESS_MESSAGES.THE_REFRESH_TOKEN_WAS_DELETED,
@@ -275,4 +282,33 @@ const RemoveRefreshToken = async (req, res) => {
 };
 
 
-module.exports = { refreshAccessToken, googleAuth, RemoveRefreshToken };
+
+const getMe = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).select('-password -otp -otpExpiresAt -resetPasswordToken -resetPasswordExpires');
+
+    if (!user) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.USER_NOT_FOUND });
+    }
+
+    if (user.isBlocked) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: "User is blocked." });
+    }
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      userData: user,
+      role: req.user.role || (user.isAdmin ? 'admin' : 'user')
+    });
+  } catch (error) {
+    console.error("Error in getMe:", error);
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR
+    });
+  }
+};
+
+module.exports = { refreshAccessToken, googleAuth, RemoveRefreshToken, getMe };
