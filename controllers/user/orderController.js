@@ -72,63 +72,79 @@ const get_order = async (req, res) => {
 
 const cancel_order = async (req, res) => {
   const orderId = req.params.orderId;
-  const reason = req.body.reason
-  try {
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
-    }
-    if (order.orderStatus === "Delivered") {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.ORDER_IS_ALREADY_DELIVERED });
-    }
+  const reason = req.body.reason;
+  const mongoose = require("mongoose");
+  const session = await mongoose.startSession();
 
+  try {
+    session.startTransaction();
+
+    // 1. Lock and validate order state to ensure idempotency exactly once
+    const order = await Order.findOneAndUpdate(
+      { 
+        _id: orderId, 
+        orderStatus: { $in: ["Pending", "Placed", "Shipped"] } 
+      },
+      { $set: { orderStatus: "Cancelled" } },
+      { session, new: true }
+    );
+
+    if (!order) {
+      await session.abortTransaction();
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Order cannot be cancelled in its current state, or it is already cancelled." });
+    }
 
     let cancelledProducts = [];
-    await Promise.all(order.orderItems.map(async (item) => {
-      item.orderStatus = "Cancelled";
-      item.cancellationReason = reason;
-      const product = await Product.findById(item.product);
-      if (product) {
-        cancelledProducts.push(`${product.productName} (x${item.quantity})`);
-        product.quantity += item.quantity;
-        await product.save();
+    
+    // 2. Restore inventory atomically
+    for (const item of order.orderItems) {
+      if (item.orderStatus !== "Cancelled") {
+        item.orderStatus = "Cancelled";
+        item.cancellationReason = reason;
+        
+        await Product.updateOne(
+          { _id: item.product },
+          { $inc: { quantity: item.quantity } },
+          { session }
+        );
+        cancelledProducts.push(`${item.productName || item.product} (x${item.quantity})`);
       }
-    }));
+    }
 
+    // 3. Process Wallet Refund atomically
     if ((order.paymentMethod === "Razor pay" || order.paymentMethod === "wallet") && order.paymentStatus === "Completed") {
       const userId = order.user;
-      let wallet = await Wallet.findOne({ userId });
-
-      if (!wallet) {
-        wallet = new Wallet({
-          userId,
-          balance: 0,
-          transactions: [],
-        });
-      }
-
-      wallet.balance += order.payableAmount + order.shippingFee;
+      const refundAmount = order.payableAmount + order.shippingFee;
 
       const transactionItem = {
         type: "credit",
-        amount: order.payableAmount + order.shippingFee,
+        amount: refundAmount,
         description: `Refund for cancelled product(s): ${cancelledProducts.join(', ')}`,
         date: new Date(),
       };
 
-      wallet.transactions.push(transactionItem);
-      await wallet.save();
-      order.paymentStatus = "Refunded"
+      await Wallet.findOneAndUpdate(
+        { userId },
+        { 
+          $inc: { balance: refundAmount },
+          $push: { transactions: transactionItem }
+        },
+        { session, upsert: true }
+      );
+      
+      order.paymentStatus = "Refunded";
     }
 
     if (order.paymentMethod === "Cash on Delivery") {
       order.paymentStatus = "Cancelled";
     }
 
-    order.orderStatus = "Cancelled";
-
     order.payableAmount = 0;
-    await order.save();
+    
+    // 4. Save order to finalize item statuses and payment status
+    await order.save({ session });
+    
+    await session.commitTransaction();
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -136,50 +152,62 @@ const cancel_order = async (req, res) => {
     });
 
   } catch (error) {
+    await session.abortTransaction();
     console.error("Error in cancel_order:", error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
+  } finally {
+    await session.endSession();
   }
 };
 
 const cancel_product = async (req, res) => {
   const { productId, orderId, quantity, reason } = req.body;
-  // console.log(productId, orderId, quantity, " product cancelled");
+  const mongoose = require("mongoose");
+  const session = await mongoose.startSession();
 
   try {
+    session.startTransaction();
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).session(session);
     if (!order) {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
     }
 
+    if (["Delivered", "Cancelled", "Returned", "Expired"].includes(order.orderStatus)) {
+      await session.abortTransaction();
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Order cannot be modified in its current state." });
+    }
 
     const orderItem = order.orderItems.find(item => item._id.toString() === productId);
     if (!orderItem) {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ORDER_ITEM_NOT_FOUND });
     }
 
-
-    const product = await Product.findById(orderItem.product);
-    if (!product) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.PRODUCT_NOT_FOUND });
+    if (orderItem.orderStatus === "Cancelled") {
+      await session.abortTransaction();
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Item is already cancelled." });
     }
 
-    // console.log("Original product quantity", product.quantity);
-
-    product.quantity += quantity;
-    await product.save();
+    // Atomic inventory restoration
+    await Product.updateOne(
+      { _id: orderItem.product },
+      { $inc: { quantity: quantity } },
+      { session }
+    );
 
     let amountReduced = 0;
-
     let flag = true;
+
     order.orderItems.forEach(item => {
       if (item._id.toString() === productId) {
         item.orderStatus = "Cancelled";
         if (order.paymentStatus === "Completed") {
           item.paymentStatus = "Refunded";
         }
-        item.cancellationReason = reason
-        amountReduced += item.totalPrice
+        item.cancellationReason = reason;
+        amountReduced += item.totalPrice;
       }
       if (item.orderStatus !== "Cancelled") {
         flag = false;
@@ -192,46 +220,48 @@ const cancel_product = async (req, res) => {
         order.paymentStatus = "Cancelled";
       }
     }
+
     const noOfItems = order.orderItems.length;
     const averageCouponDiscount = Math.floor(order.couponDiscount / noOfItems);
 
     order.payableAmount -= (amountReduced - averageCouponDiscount);
-    let amountGetAddedToTheWallet = (amountReduced - averageCouponDiscount) + (flag ? order.shippingFee : 0)
+    let amountGetAddedToTheWallet = (amountReduced - averageCouponDiscount) + (flag ? order.shippingFee : 0);
 
     if ((order.paymentMethod === "Razor pay" || order.paymentMethod === "wallet") && order.paymentStatus === "Completed") {
       const userId = order.user;
-      let wallet = await Wallet.findOne({ userId });
-
-      if (!wallet) {
-        wallet = new Wallet({
-          userId,
-          balance: 0,
-          transactions: [],
-        });
-      }
-
-      wallet.balance += amountGetAddedToTheWallet;
-
+      
       const transactionItem = {
         type: "credit",
         amount: amountGetAddedToTheWallet,
-        description: `Refund for cancelled product: ${product.productName} (x${quantity})`,
+        description: `Refund for cancelled product: ${orderItem.productName || orderItem.product} (x${quantity})`,
         date: new Date(),
       };
 
-      wallet.transactions.push(transactionItem);
-      await wallet.save();
+      await Wallet.findOneAndUpdate(
+        { userId },
+        { 
+          $inc: { balance: amountGetAddedToTheWallet },
+          $push: { transactions: transactionItem }
+        },
+        { session, upsert: true }
+      );
+      
       if (flag) {
         order.paymentStatus = "Refunded";
       }
     }
 
-    await order.save();
+    await order.save({ session });
+    
+    await session.commitTransaction();
     res.status(HTTP_STATUS.OK).json({ success: true, message: SUCCESS_MESSAGES.PRODUCT_CANCELLED });
 
   } catch (error) {
+    await session.abortTransaction();
     //console.error("Error in cancel_product:", error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR });
+  } finally {
+    await session.endSession();
   }
 };
 

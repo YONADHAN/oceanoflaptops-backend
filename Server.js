@@ -39,13 +39,23 @@ app.use(
 const cookieParser = require('cookie-parser')
 app.use(cookieParser())
 
+const webhookRoute = require('./router/webhookRoute')
+app.use('/api/webhook', webhookRoute)
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+const expireReservations = require('./utils/expireReservations')
 
 // Run every day at midnight (00:00)
 cron.schedule('0 0 * * *', () => {
   console.log('Running scheduled job: Cancelling pending orders')
   cancelPendingOrders()
+})
+
+// Run every 5 minutes to expire reservations
+cron.schedule('*/5 * * * *', () => {
+  expireReservations()
 })
 
 app.use('/api/', userRoute)

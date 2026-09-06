@@ -72,6 +72,9 @@ router.post('/checkout',verifyUser, CartController.processCheckout);
 router.post('/clear_cart',verifyUser, CartController.clear_cart);
 router.post('/refresh_cart',verifyUser, CartController.refresh_cart);
 
+const checkoutV2Controller = require('../controllers/user/checkoutControllerV2');
+router.post('/checkout_v2', verifyUser, checkoutV2Controller.processCheckout_v2);
+
 
 //orders
 router.get("/order_history",verifyUser, OrderController.order_history);
@@ -85,6 +88,7 @@ router.get('/get_tax_invoice/:orderId', verifyUser, downloadInvoiceController.do
 //payment
 router.post('/create_razorpay_order', verifyUser, PaymentController.create_razorpay_order);
 router.post('/verify_razorpay_payment',verifyUser, PaymentController.verify_razorpay_payment);
+router.post('/reconcile_payment', verifyUser, PaymentController.reconcile_frontend_payment);
 router.post('/retry_payment',verifyUser, PaymentController.retry_payment);
 router.post('/verify_retry_razorpay_payment',verifyUser, PaymentController.verify_retry_razorpay_payment)
 

@@ -245,54 +245,101 @@ const order_details = async (req, res) => {
 
 
 const order_status = async function (req, res) {
-  try {
-    const { orderId } = req.params;
-    const { status } = req.body;
+  const { orderId } = req.params;
+  const { status } = req.body;
+  const mongoose = require("mongoose");
+  const session = await mongoose.startSession();
 
-    const order = await Order.findOne({ orderId });
+  try {
+    session.startTransaction();
+
+    const order = await Order.findOne({ orderId }).session(session);
 
     if (!order) {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         message: ERROR_MESSAGES.ORDER_NOT_FOUND
       });
     }
 
-
     if (order.orderStatus === "Cancelled") {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: ERROR_MESSAGES.CANNOT_UPDATE_STATUS_ORDER_IS_ALREADY_CANCELLED
       });
     }
 
-
     if (order.orderStatus === "Delivered" && status !== "Delivered") {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: ERROR_MESSAGES.CANNOT_CHANGE_STATUS_OF_DELIVERED_ORDERS
       });
     }
 
+    // NEW LOGIC: Admin cancelling order
+    if (status === "Cancelled") {
+      let cancelledProducts = [];
+      let refundAmount = 0;
 
-    order.orderItems = order.orderItems.map(item => {
-      if (item.orderStatus !== "Cancelled") {
-        return { ...item, orderStatus: status };
+      for (const item of order.orderItems) {
+        if (item.orderStatus !== "Cancelled") {
+          item.orderStatus = "Cancelled";
+          item.cancellationReason = "Cancelled by Admin";
+          
+          await Product.updateOne(
+            { _id: item.product },
+            { $inc: { quantity: item.quantity } },
+            { session }
+          );
+          cancelledProducts.push(`${item.productName || item.product} (x${item.quantity})`);
+        }
       }
-      return item;
-    });
 
+      if ((order.paymentMethod === "Razor pay" || order.paymentMethod === "wallet") && order.paymentStatus === "Completed") {
+        refundAmount = order.payableAmount + order.shippingFee;
 
-    order.orderStatus = status;
+        const transactionItem = {
+          type: "credit",
+          amount: refundAmount,
+          description: `Refund for admin-cancelled order: ${cancelledProducts.join(', ')}`,
+          date: new Date(),
+        };
 
-    if (order && order.orderStatus) {
-      if (order.orderStatus === "Cancelled" && order.paymentMethod === "Cash on Delivery") {
+        await Wallet.findOneAndUpdate(
+          { userId: order.user },
+          { 
+            $inc: { balance: refundAmount },
+            $push: { transactions: transactionItem }
+          },
+          { session, upsert: true }
+        );
+        order.paymentStatus = "Refunded";
+      } else if (order.paymentMethod === "Cash on Delivery") {
         order.paymentStatus = "Cancelled";
-      } else if (order.orderStatus === "Delivered" && order.paymentMethod === "Cash on Delivery") {
+      }
+
+      order.payableAmount = 0;
+    } else {
+      // Normal status update
+      order.orderItems = order.orderItems.map(item => {
+        if (item.orderStatus !== "Cancelled") {
+          return { ...item, orderStatus: status };
+        }
+        return item;
+      });
+
+      if (status === "Delivered" && order.paymentMethod === "Cash on Delivery") {
         order.paymentStatus = "Completed";
       }
     }
-    await order.save();
+
+    order.orderStatus = status;
+    await order.save({ session });
+    
+    await session.commitTransaction();
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -301,10 +348,13 @@ const order_status = async function (req, res) {
     });
 
   } catch (error) {
+    await session.abortTransaction();
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || "Failed to update order status"
     });
+  } finally {
+    await session.endSession();
   }
 }
 
@@ -378,20 +428,27 @@ const order_status = async function (req, res) {
 // }
 
 const return_request_management = async (req, res) => {
-  try {
-    const { orderId, itemId, decision, reason } = req.body;
+  const { orderId, itemId, decision, reason } = req.body;
+  const mongoose = require("mongoose");
+  const session = await mongoose.startSession();
 
-    const order = await Order.findOne({ orderId });
+  try {
+    session.startTransaction();
+
+    const order = await Order.findOne({ orderId }).session(session);
     if (!order) {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
     }
 
     const item = order.orderItems.find(i => i._id == itemId);
     if (!item) {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ITEM_NOT_FOUND });
     }
 
     if (item.returnRequest.requestStatus !== "Pending") {
+      await session.abortTransaction();
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.RETURN_ALREADY_PROCESSED });
     }
 
@@ -404,31 +461,30 @@ const return_request_management = async (req, res) => {
         amount = item.totalPrice - Math.round(order.couponDiscount / order.orderItems.length);
       }
 
-      const wallet = await Wallet.findOne({ userId: order.user });
-      if (!wallet) {
-        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.WALLET_NOT_FOUND });
-      }
-
-      wallet.balance += amount + order.shippingFee;
+      const refundAmount = amount + order.shippingFee;
 
       const transactionItem = {
         type: "credit",
-        amount: amount + order.shippingFee,
-        description: `Refund for ${item.productName} (x${item.quantity})`,
+        amount: refundAmount,
+        description: `Refund for returned product: ${item.productName || item.product} (x${item.quantity})`,
         date: Date.now(),
       };
 
-      wallet.transactions.push(transactionItem);
+      await Wallet.findOneAndUpdate(
+        { userId: order.user },
+        { 
+          $inc: { balance: refundAmount },
+          $push: { transactions: transactionItem }
+        },
+        { session, upsert: true }
+      );
 
-      const product = await Product.findById(item.product);
-      if (!product) {
-        return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.PRODUCT_NOT_FOUND });
-      }
-
-      product.quantity += 1;
-
-      // Save wallet and product simultaneously
-      await Promise.all([wallet.save(), product.save()]);
+      // Atomic inventory restoration, using item.quantity instead of hardcoded 1
+      await Product.updateOne(
+        { _id: item.product },
+        { $inc: { quantity: item.quantity } },
+        { session }
+      );
 
       item.paymentStatus = "Refunded";
     }
@@ -439,11 +495,16 @@ const return_request_management = async (req, res) => {
       order.paymentStatus = "Refunded";
     }
 
-    await order.save();
+    await order.save({ session });
+    
+    await session.commitTransaction();
 
     res.status(HTTP_STATUS.OK).json({ success: true, message: SUCCESS_MESSAGES.RETURN_REQUEST_PROCESSED });
   } catch (error) {
+    await session.abortTransaction();
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR, error: error.message });
+  } finally {
+    await session.endSession();
   }
 };
 

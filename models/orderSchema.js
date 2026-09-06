@@ -52,6 +52,7 @@ const orderSchema = new mongoose.Schema({
           "Cancelled",
           "Returned",
           "Return Rejected",
+          "Expired",
         ],
         default: "Pending",
       },
@@ -122,7 +123,28 @@ const orderSchema = new mongoose.Schema({
   razorpayPaymentId: {
     type: String,
     default: null
-},
+  },
+  reservationExpiresAt: {
+    type: Date,
+  },
+  idempotencyKey: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  paymentAttempts: [
+    {
+      attemptId: { type: String },
+      razorpayOrderId: { type: String },
+      razorpayPaymentId: { type: String },
+      amount: { type: Number },
+      status: {
+        type: String,
+        enum: ["CREATED", "AUTHORIZED", "CAPTURED", "FAILED", "REFUNDED"],
+      },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
   totalDiscount: {
     type: Number,
     min: [0, "Discount cannot be negative"],
@@ -131,6 +153,10 @@ const orderSchema = new mongoose.Schema({
   couponDiscount: {
     type: Number,
     default: 0,
+  },
+  appliedCoupon: {
+    type: String,
+    default: null,
   },
   shippingFee: {
     type: Number,
@@ -164,6 +190,7 @@ const orderSchema = new mongoose.Schema({
       "Cancelled",
       "Returned",
       "Return Rejected",
+      "Expired",
     ],
     default: "Pending",
   },
