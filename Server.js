@@ -63,6 +63,12 @@ app.use('/api/admin', adminRoute)
 app.use('/api/auth', authRoute)
 app.use('/api/public', publicRoute)
 
-app.listen(3000, () => {
-  console.log('Server started on port number 3000')
+const PORT = process.env.PORT || 3000;
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server started on port number ${PORT}`);
 })
