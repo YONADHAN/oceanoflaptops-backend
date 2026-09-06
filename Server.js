@@ -39,8 +39,13 @@ app.use(
 const cookieParser = require('cookie-parser')
 app.use(cookieParser())
 
+const webhookRoute = require('./router/webhookRoute')
+app.use('/api/webhook', webhookRoute)
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+const expireReservations = require('./utils/expireReservations')
 
 // Run every day at midnight (00:00)
 cron.schedule('0 0 * * *', () => {
@@ -48,11 +53,22 @@ cron.schedule('0 0 * * *', () => {
   cancelPendingOrders()
 })
 
+// Run every 5 minutes to expire reservations
+cron.schedule('*/5 * * * *', () => {
+  expireReservations()
+})
+
 app.use('/api/', userRoute)
 app.use('/api/admin', adminRoute)
 app.use('/api/auth', authRoute)
 app.use('/api/public', publicRoute)
 
-app.listen(3000, () => {
-  console.log('Server started on port number 3000')
+const PORT = process.env.PORT || 3000;
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server started on port number ${PORT}`);
 })
