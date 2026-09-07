@@ -47,7 +47,7 @@ cron.schedule('0 0 * * *', () => {
   cancelPendingOrders()
 })
 
-// Run every 5 minutes to expire reservations
+
 cron.schedule('*/5 * * * *', () => {
   expireReservations()
 })
