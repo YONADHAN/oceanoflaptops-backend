@@ -12,7 +12,6 @@ const razorpayWebhook = async (req, res) => {
       return res.status(400).send("Bad Request");
     }
 
-    // req.body is a Buffer because we used express.raw()
     const expectedSignature = crypto
       .createHmac("sha256", webhookSecret)
       .update(req.body)
@@ -23,7 +22,6 @@ const razorpayWebhook = async (req, res) => {
       return res.status(400).send("Invalid signature");
     }
 
-    // Now safely parse the payload
     let payload;
     try {
       payload = JSON.parse(req.body.toString("utf8"));
@@ -34,7 +32,6 @@ const razorpayWebhook = async (req, res) => {
 
     const eventType = payload.event;
 
-    // Deduplicate event using WebhookEvent schema
     try {
       await WebhookEvent.create({
         eventId,
@@ -42,15 +39,12 @@ const razorpayWebhook = async (req, res) => {
       });
       console.log(`Razorpay webhook received - eventId: ${eventId}, eventType: ${eventType}`);
     } catch (err) {
-      // If error is duplicate key error (code 11000), it's a duplicate webhook
       if (err.code === 11000) {
         console.log(`Razorpay webhook duplicate: ${eventId}`);
-        // Return 200 so Razorpay knows it's received and doesn't retry
         return res.status(200).send("Duplicate acknowledged");
       }
       
       console.error("Database error while recording webhook event:", err);
-      // Return 500 so Razorpay retries later
       return res.status(500).send("Internal Server Error");
     }
 
@@ -64,7 +58,7 @@ const razorpayWebhook = async (req, res) => {
         status: "CAPTURED",
         amount: paymentEntity.amount,
         currency: paymentEntity.currency,
-        userId: null // Webhook has no session, relies entirely on order_id matching
+        userId: null
       });
     } else if (eventType === "payment.failed") {
       const paymentEntity = payload.payload.payment.entity;

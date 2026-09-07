@@ -7,13 +7,14 @@ const Coupon = require("../../models/couponSchema");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
+const { sendOrderConfirmationEmail } = require("../../utils/emailService");
 
 const razorpayInstance = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_SECRET,
 });
 
-const processCheckout_v2 = async (req, res) => {
+const processCheckout = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
@@ -21,7 +22,6 @@ const processCheckout_v2 = async (req, res) => {
     const idempotencyKey = req.headers["idempotency-key"] || crypto.randomUUID();
     const userId = req.user._id;
 
-    // 1. Idempotency Check
     const existingOrder = await Order.findOne({ idempotencyKey }).session(session);
     if (existingOrder) {
       await session.abortTransaction();
@@ -34,13 +34,11 @@ const processCheckout_v2 = async (req, res) => {
       });
     }
 
-    // 2. Fetch Authoritative Cart
     const cart = await Cart.findOne({ userId }).session(session);
     if (!cart || cart.items.length === 0) {
       throw new Error("Cart is empty or not found");
     }
 
-    // 3. Authoritative Amount Calculation
     let calculatedTotal = 0;
     const processedItems = [];
 
@@ -48,7 +46,6 @@ const processCheckout_v2 = async (req, res) => {
       const product = await Product.findById(item.productId).session(session);
       if (!product) throw new Error(`Product ${item.productName} not found`);
 
-      // Atomic inventory check and reservation (Phase 3 Rule 7)
       if (product.quantity < item.quantity) {
         throw new Error(`Insufficient stock for ${product.productName}`);
       }
@@ -79,7 +76,6 @@ const processCheckout_v2 = async (req, res) => {
       });
     }
 
-    // 4. Shipping & Coupon Rules
     let shippingFee = 15;
     let couponDiscountAmount = 0;
 
@@ -87,14 +83,12 @@ const processCheckout_v2 = async (req, res) => {
       const coupon = await Coupon.findOne({ name: appliedCouponCode, isList: true }).session(session);
       if (coupon && calculatedTotal >= coupon.minimumPrice) {
         couponDiscountAmount = coupon.offerPrice;
-        // Business rule: track coupon usage if needed. We assume it's applied correctly.
       }
     }
 
     const finalAmount = calculatedTotal + shippingFee - couponDiscountAmount;
     if (finalAmount < 0) throw new Error("Invalid final amount");
 
-    // 5. Wallet check if applicable
     if (paymentMethod === "wallet") {
       const wallet = await Wallet.findOne({ userId }).session(session);
       if (!wallet || wallet.balance < finalAmount) {
@@ -110,7 +104,6 @@ const processCheckout_v2 = async (req, res) => {
       await wallet.save({ session });
     }
 
-    // 6. Create Application Order (PAYMENT_PENDING)
     const newOrder = new Order({
       user: userId,
       orderItems: processedItems,
@@ -137,11 +130,10 @@ const processCheckout_v2 = async (req, res) => {
       appliedCoupon: couponDiscountAmount > 0 ? appliedCouponCode : null,
       shippingFee,
       idempotencyKey,
-      reservationExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days retry window
+      reservationExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
       deliveryBy: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    // 7. PaymentAttempt #1 & Razorpay Order
     let rzpOrder = null;
     if (paymentMethod === "Razor pay") {
       try {
@@ -161,17 +153,25 @@ const processCheckout_v2 = async (req, res) => {
         status: "CREATED",
       }];
       
-      // Keep legacy field populated for compatibility
       newOrder.razorpayPaymentId = rzpOrder.id;
     }
 
     await newOrder.save({ session });
 
-    // 8. Delete cart
     await Cart.findOneAndDelete({ userId }).session(session);
 
     await session.commitTransaction();
     session.endSession();
+
+    if (newOrder.paymentStatus === "Completed") {
+      sendOrderConfirmationEmail({
+        email: newOrder.shippingAddress.email,
+        name: newOrder.shippingAddress.name,
+        orderId: newOrder.orderId,
+        items: processedItems,
+        totalAmount: finalAmount
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -189,5 +189,5 @@ const processCheckout_v2 = async (req, res) => {
 };
 
 module.exports = {
-  processCheckout_v2,
+  processCheckout,
 };

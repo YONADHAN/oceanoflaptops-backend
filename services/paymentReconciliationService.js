@@ -3,27 +3,11 @@ const Order = require("../models/orderSchema");
 const User = require("../models/userSchema");
 const Coupon = require("../models/couponSchema");
 
-/**
- * Unified Payment Reconciliation Service
- * 
- * Safely processes Razorpay payment state changes, ensuring idempotency and 
- * one-time fulfillment (e.g., coupon consumption) regardless of whether 
- * the trigger is a webhook or a frontend callback.
- * 
- * @param {Object} params
- * @param {string} params.razorpayOrderId - The order_id from Razorpay
- * @param {string} params.razorpayPaymentId - The payment_id from Razorpay (null for failed initially)
- * @param {string} params.status - 'CAPTURED' or 'FAILED'
- * @param {number} params.amount - The authoritative amount from the Razorpay payload
- * @param {string} params.currency - The currency from Razorpay
- * @param {string} params.userId - Extracted user ID (to prevent paying someone else's order)
- */
 const reconcilePayment = async ({ razorpayOrderId, razorpayPaymentId, status, amount, currency, userId }) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // 1. Find the Order containing the PaymentAttempt
     const order = await Order.findOne({ 
       "paymentAttempts.razorpayOrderId": razorpayOrderId 
     }).session(session);
@@ -35,12 +19,10 @@ const reconcilePayment = async ({ razorpayOrderId, razorpayPaymentId, status, am
       return { success: true, orphaned: true, message: "Orphaned payment logged" };
     }
 
-    // 2. Validate Ownership (if userId is provided from frontend context)
     if (userId && order.user.toString() !== userId.toString()) {
       throw new Error("Payment ownership validation failed");
     }
 
-    // 3. Find specific PaymentAttempt
     const attempt = order.paymentAttempts.find(
       (a) => a.razorpayOrderId === razorpayOrderId
     );
@@ -52,7 +34,6 @@ const reconcilePayment = async ({ razorpayOrderId, razorpayPaymentId, status, am
       return { success: true, orphaned: true, message: "Orphaned payment logged" };
     }
 
-    // 4. Validate Amount/Currency
     const normalizedAmount = amount ? (amount / 100) : attempt.amount;
     if (amount && normalizedAmount !== attempt.amount) {
        console.warn(`Amount mismatch for ${razorpayOrderId}: Expected ${attempt.amount}, got ${normalizedAmount}`);
@@ -63,7 +44,6 @@ const reconcilePayment = async ({ razorpayOrderId, razorpayPaymentId, status, am
        throw new Error("Payment currency validation failed");
     }
 
-    // 5. Idempotent State Transitions
     if (status === "CAPTURED") {
       if (order.paymentStatus === "Completed" || order.paymentStatus === "Paid") {
         await session.commitTransaction();
@@ -85,11 +65,9 @@ const reconcilePayment = async ({ razorpayOrderId, razorpayPaymentId, status, am
       order.orderStatus = "Placed"; 
       order.razorpayPaymentId = razorpayPaymentId; 
 
-      // ONE-TIME FULFILLMENT: Coupon Consumption
       if (order.appliedCoupon) {
         const coupon = await Coupon.findOne({ name: order.appliedCoupon }).session(session);
         if (coupon) {
-          // Verify it wasn't already applied by this order somehow
           const userObj = await User.findById(order.user).session(session);
           if (userObj) {
              coupon.users.push({
@@ -110,7 +88,6 @@ const reconcilePayment = async ({ razorpayOrderId, razorpayPaymentId, status, am
       await order.save({ session });
       
     } else if (status === "FAILED") {
-      // If order is already completed, a late failure event MUST NOT overwrite it.
       if (order.paymentStatus === "Completed" || order.paymentStatus === "Paid") {
         console.log(`Reconciliation idempotent no-op: Ignored failure for already Paid Order ${order.orderId}.`);
         await session.commitTransaction();
@@ -118,16 +95,47 @@ const reconcilePayment = async ({ razorpayOrderId, razorpayPaymentId, status, am
         return { success: true, message: "Failure ignored for Paid order", orderId: order.orderId };
       }
 
-      // Update attempt to FAILED, leave Order as PAYMENT_PENDING
       attempt.status = "FAILED";
       attempt.razorpayPaymentId = razorpayPaymentId;
-      // We DO NOT set order.paymentStatus = "Failed" because retry is allowed.
       
       await order.save({ session });
     }
 
     await session.commitTransaction();
     session.endSession();
+
+    if (status === "CAPTURED") {
+      try {
+        const { sendOrderConfirmationEmail } = require("../utils/emailService");
+        const emailItems = order.orderItems.map(item => ({
+          productName: item.productName,
+          quantity: item.quantity,
+          price: item.price
+        }));
+        
+        sendOrderConfirmationEmail({
+          email: order.shippingAddress.email,
+          name: order.shippingAddress.name,
+          orderId: order.orderId,
+          items: emailItems,
+          totalAmount: order.payableAmount || order.totalAmount
+        });
+      } catch (err) {
+        console.error("Silent error in triggering email:", err);
+      }
+    } else if (status === "FAILED") {
+      try {
+        const { sendOrderFailureEmail } = require("../utils/emailService");
+        sendOrderFailureEmail({
+          email: order.shippingAddress.email,
+          name: order.shippingAddress.name,
+          orderId: order.orderId,
+          totalAmount: order.payableAmount || order.totalAmount
+        });
+      } catch (err) {
+        console.error("Silent error in triggering failure email:", err);
+      }
+    }
 
     return { 
       success: true, 

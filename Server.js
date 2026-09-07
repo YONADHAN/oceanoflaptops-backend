@@ -11,7 +11,7 @@ const publicRoute = require('./router/publicRoute')
 const cancelPendingOrders = require('./utils/CancelOrderExceedsTwoDaysWithoutPayments')
 const webhookRoute = require('./router/webhookRoute')
 connectDB()
-const sampleController = require('./controllers/user/sampleController')
+
 
 
 const allowedOrigins = ['http://localhost:5173', 'https://oceanoflaptops.store']

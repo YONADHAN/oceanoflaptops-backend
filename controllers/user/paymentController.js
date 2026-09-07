@@ -4,6 +4,7 @@ const Order = require("../../models/orderSchema");
 const HTTP_STATUS = require("../../utils/constants/httpStatus");
 const SUCCESS_MESSAGES = require("../../utils/constants/successMessages");
 const ERROR_MESSAGES = require("../../utils/constants/errorMessages");
+const { sendOrderConfirmationEmail, sendOrderFailureEmail } = require("../../utils/emailService");
 const mongoose = require("mongoose");
 
 const razorpayInstance = new Razorpay({
@@ -32,22 +33,6 @@ const verify_razorpay_payment = async (req, res) => {
     .digest("hex");
   if (hmac === razorpay_signature) {
     res.json({ success: true });
-    // const order = await Order.findOne({ razorpayPaymentId: razorpay_order_id });
-
-    // if (!order) {
-    //   return res
-    //     .status(404)
-    //     .json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
-    // }
-
-    // order.paymentStatus = "Completed";
-    // order.razorpayPaymentId = razorpay_payment_id;
-    // await order.save();
-
-    // return res.json({
-    //   success: true,
-    //   message: SUCCESS_MESSAGES.PAYMENT_VERIFIED,
-    // });
   } else {
     res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.INVALID_SIGNATURE });
   }
@@ -60,7 +45,6 @@ const retry_payment = async (req, res) => {
   try {
     const { orderId } = req.body;
     
-    // Lock the order for update
     const order = await Order.findById(orderId).session(session);
 
     if (!order) {
@@ -69,14 +53,12 @@ const retry_payment = async (req, res) => {
       return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: ERROR_MESSAGES.ORDER_NOT_FOUND });
     }
 
-    // 1. Verify ownership
     if (order.user.toString() !== req.user._id.toString()) {
       await session.abortTransaction();
       session.endSession();
       return res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, message: "Not authorized to retry this order" });
     }
 
-    // 2. Retry Eligibility Check
     if (order.paymentStatus !== "Pending") {
       await session.abortTransaction();
       session.endSession();
@@ -95,7 +77,6 @@ const retry_payment = async (req, res) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Reservation has expired. Please create a new order." });
     }
 
-    // Check if any attempt is already CAPTURED
     const alreadyCaptured = order.paymentAttempts.some(a => a.status === "CAPTURED");
     if (alreadyCaptured) {
       await session.abortTransaction();
@@ -103,7 +84,6 @@ const retry_payment = async (req, res) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Payment already captured" });
     }
 
-    // 3. Prevent creating multiple active attempts for the exact same retry payload
     const activeAttempt = order.paymentAttempts.find(a => a.status === "CREATED");
     if (activeAttempt) {
       await session.commitTransaction();
@@ -116,8 +96,7 @@ const retry_payment = async (req, res) => {
       });
     }
 
-    // 4. Create new Razorpay Order with authoritative amount
-    const attemptAmount = order.payableAmount || order.totalAmount; // authoritative amount fallback
+    const attemptAmount = order.payableAmount || order.totalAmount;
     if (!attemptAmount || attemptAmount <= 0) {
         throw new Error("Invalid authoritative order amount for retry");
     }
@@ -128,7 +107,6 @@ const retry_payment = async (req, res) => {
       receipt: `retry_${order._id}_${Date.now()}`,
     });
 
-    // 5. Create new Payment Attempt
     order.paymentAttempts.push({
       attemptId: crypto.randomUUID(),
       razorpayOrderId: razorpayOrder.id,
@@ -136,7 +114,7 @@ const retry_payment = async (req, res) => {
       status: "CREATED",
     });
 
-    order.razorpayPaymentId = razorpayOrder.id; // Keep legacy field populated for compatibility
+    order.razorpayPaymentId = razorpayOrder.id;
 
     await order.save({ session });
     
@@ -147,7 +125,6 @@ const retry_payment = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error("Error in retry payment:", error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: "Error retrying payment" });
   }
 };
@@ -160,7 +137,6 @@ const verify_retry_razorpay_payment = async(req,res)=>{
     .update(razorpay_order_id + "|" + razorpay_payment_id)
     .digest("hex");
   if (hmac === razorpay_signature) {
-    //res.json({ success: true });
     const order = await Order.findOne({ razorpayPaymentId: razorpay_order_id });
 
     if (!order) {
@@ -172,6 +148,22 @@ const verify_retry_razorpay_payment = async(req,res)=>{
     order.paymentStatus = "Completed";
     order.razorpayPaymentId = razorpay_payment_id;
     await order.save();
+
+    try {
+      const emailItems = order.orderItems.map(item => ({
+        productName: item.productName,
+        quantity: item.quantity,
+        price: item.price
+      }));
+      sendOrderConfirmationEmail({
+        email: order.shippingAddress.email,
+        name: order.shippingAddress.name,
+        orderId: order.orderId,
+        items: emailItems,
+        totalAmount: order.payableAmount || order.totalAmount
+      });
+    } catch (err) {
+    }
 
     return res.json({
       success: true,
@@ -188,29 +180,57 @@ const reconcile_frontend_payment = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     
-    // 1. Cryptographically verify signature server-side
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_SECRET)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
       
     if (expectedSignature !== razorpay_signature) {
-      console.warn("Invalid Razorpay signature on frontend callback");
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: ERROR_MESSAGES.INVALID_SIGNATURE });
     }
 
-    // 2. Call unified reconciliation service
     const result = await reconcilePayment({
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
-      status: "CAPTURED", // Valid signature means frontend callback is claiming success
-      userId: req.user?._id // Enforce ownership if authenticated
+      status: "CAPTURED",
+      userId: req.user?._id
     });
 
     res.status(HTTP_STATUS.OK).json(result);
   } catch (error) {
-    console.error("Frontend reconciliation failed:", error.message);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Reconciliation failed" });
+  }
+};
+
+const notify_payment_failure = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    
+    if (!orderId) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: "Order ID is required" });
+    }
+    
+    const order = await Order.findOne({ 
+      $or: [{ orderId: orderId }, { _id: orderId }],
+      user: req.user._id
+    });
+    
+    if (!order) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, message: "Order not found" });
+    }
+    
+    try {
+      sendOrderFailureEmail({
+        email: order.shippingAddress.email,
+        name: order.shippingAddress.name,
+        orderId: order.orderId,
+        totalAmount: order.payableAmount || order.totalAmount
+      });
+    } catch (err) {}
+    
+    return res.status(HTTP_STATUS.OK).json({ success: true, message: "Failure notification sent" });
+  } catch (error) {
+    return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -219,5 +239,6 @@ module.exports = {
   verify_razorpay_payment,
   retry_payment,
   verify_retry_razorpay_payment,
-  reconcile_frontend_payment
+  reconcile_frontend_payment,
+  notify_payment_failure
 };

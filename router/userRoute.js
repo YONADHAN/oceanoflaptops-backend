@@ -11,10 +11,8 @@ const WalletController = require('../controllers/user/walletController');
 const CouponController = require('../controllers/user/couponController');
 const PaymentController = require('../controllers/user/paymentController');
 const downloadInvoiceController = require('../controllers/user/downloadInvoiceController');
+const checkoutController = require('../controllers/user/checkoutController');
 const {verifyUser} = require("../middlewares/auth")
-
-// const sampleController = require('../controllers/user/sampleController')
-
 //authentication routes
 router.post('/user_signup', authController.userSignup);
 router.post('/verify_otp', authController.verify_otp);
@@ -72,8 +70,8 @@ router.post('/checkout',verifyUser, CartController.processCheckout);
 router.post('/clear_cart',verifyUser, CartController.clear_cart);
 router.post('/refresh_cart',verifyUser, CartController.refresh_cart);
 
-const checkoutV2Controller = require('../controllers/user/checkoutControllerV2');
-router.post('/checkout_v2', verifyUser, checkoutV2Controller.processCheckout_v2);
+
+router.post('/checkout_v2', verifyUser, checkoutController.processCheckout);
 
 
 //orders
