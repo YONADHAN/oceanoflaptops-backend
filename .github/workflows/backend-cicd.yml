@@ -26,3 +26,44 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/oceanoflaptops-backend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/oceanoflaptops-backend:${{ github.sha }}
+
+      - name: Deploy to EC2
+        if: github.event_name == 'push'
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/oceanoflaptops-backend:${{ github.sha }}"
+
+            echo "Pulling image: $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "Stopping existing container..."
+            docker stop oceanoflaptops-backend || true
+
+            echo "Removing existing container..."
+            docker rm oceanoflaptops-backend || true
+
+            echo "Starting new container..."
+            docker run -d \
+              --name oceanoflaptops-backend \
+              --restart unless-stopped \
+              --env-file ~/oceanoflaptops.env \
+              -p 127.0.0.1:3000:3000 \
+              "$IMAGE"
+
+            echo "Waiting for application to start..."
+            sleep 5
+
+            echo "Container status:"
+            docker ps --filter "name=oceanoflaptops-backend"
+
+            echo "Running health check..."
+            curl --fail --silent --show-error \
+              http://127.0.0.1:3000/health
+
+            echo "Deployment successful."
