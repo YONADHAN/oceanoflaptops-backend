@@ -9,22 +9,16 @@ const connectDB = require('./config/db')
 const authRoute = require('./router/authRoute')
 const publicRoute = require('./router/publicRoute')
 const cancelPendingOrders = require('./utils/CancelOrderExceedsTwoDaysWithoutPayments')
-
+const webhookRoute = require('./router/webhookRoute')
 connectDB()
 const sampleController = require('./controllers/user/sampleController')
-// app.use(
-//   cors({
-//     origin: "http://localhost:5173",
-//     credentials: true,
-//   })
-// );
 
-const allowedOrigins = ['http://localhost:5173', 'https://oceanoflaptops.shop']
+
+const allowedOrigins = ['http://localhost:5173', 'https://oceanoflaptops.store']
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true)
       if (allowedOrigins.indexOf(origin) === -1) {
         const msg = `The CORS policy for this site does not allow access from the specified Origin.`
@@ -39,7 +33,7 @@ app.use(
 const cookieParser = require('cookie-parser')
 app.use(cookieParser())
 
-const webhookRoute = require('./router/webhookRoute')
+
 app.use('/api/webhook', webhookRoute)
 
 app.use(express.json())
@@ -47,7 +41,7 @@ app.use(express.urlencoded({ extended: true }))
 
 const expireReservations = require('./utils/expireReservations')
 
-// Run every day at midnight (00:00)
+
 cron.schedule('0 0 * * *', () => {
   console.log('Running scheduled job: Cancelling pending orders')
   cancelPendingOrders()
